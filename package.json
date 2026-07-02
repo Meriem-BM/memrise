@@ -1,0 +1,26 @@
+{
+  "name": "memrise",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "format": "uv run ruff format . && prettier --write . --ignore-unknown",
+    "format:check": "uv run ruff format --check . && prettier --check . --ignore-unknown",
+    "lint": "uv run ruff check . && pnpm --recursive lint",
+    "typecheck": "uv run pyright && pnpm --recursive typecheck",
+    "test": "pnpm --recursive test",
+    "build": "pnpm --recursive build",
+    "generate:sdk": "pnpm --filter @memrise/sdk generate",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "hooks:pre-commit": "python3 scripts/hooks/pre_commit.py",
+    "hooks:commit-msg": "python3 scripts/hooks/commit_msg.py"
+  },
+  "devDependencies": {
+    "prettier": "3.9.4"
+  }
+}

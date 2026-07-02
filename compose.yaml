@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.4-pg18-trixie
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-memrise}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memrise}
+      POSTGRES_DB: ${POSTGRES_DB:-memrise}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-memrise} -d ${POSTGRES_DB:-memrise}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres18-data:/var/lib/postgresql
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      target: api
+    env_file: .env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://memrise:memrise@postgres:5432/memrise
+      MEMRISE_USE_FAKE_MODEL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+      target: worker
+    env_file: .env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://memrise:memrise@postgres:5432/memrise
+      MEMRISE_USE_FAKE_MODEL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      NEXT_PUBLIC_MEMRISE_API_URL: http://localhost:8000
+      NEXT_PUBLIC_MEMRISE_API_KEY: local-dev-key
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
+volumes:
+  postgres18-data:

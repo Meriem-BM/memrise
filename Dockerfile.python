@@ -1,0 +1,23 @@
+FROM python:3.14-slim AS base
+
+ENV UV_CACHE_DIR=/tmp/uv-cache \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    PATH="/app/.venv/bin:${PATH}"
+
+WORKDIR /app
+COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
+COPY pyproject.toml uv.lock ./
+COPY packages/engine/pyproject.toml packages/engine/pyproject.toml
+COPY apps/api/pyproject.toml apps/api/pyproject.toml
+COPY apps/worker/pyproject.toml apps/worker/pyproject.toml
+COPY packages/evals/pyproject.toml packages/evals/pyproject.toml
+RUN uv sync --frozen --all-packages --no-dev
+COPY . .
+
+FROM base AS api
+EXPOSE 8000
+CMD ["memrise-api"]
+
+FROM base AS worker
+CMD ["memrise-worker"]
+

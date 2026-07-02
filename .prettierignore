@@ -1,0 +1,17 @@
+.venv/
+node_modules/
+.next/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.ruff_cache/
+.pytest_cache/
+.pyright/
+.turbo/
+__pycache__/
+uv.lock
+pnpm-lock.yaml
+docs/openapi.json
+packages/sdk-typescript/src/generated/
