@@ -20,6 +20,22 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    op.execute("CREATE EXTENSION IF NOT EXISTS age")
+    op.execute("LOAD 'age'")
+    op.execute('SET search_path = ag_catalog, "$user", public')
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM ag_catalog.ag_graph WHERE name = 'memrise_graph'
+            ) THEN
+                PERFORM create_graph('memrise_graph');
+            END IF;
+        END
+        $$;
+        """
+    )
 
     op.create_table(
         "episodes",
@@ -185,69 +201,6 @@ def upgrade() -> None:
     )
 
     op.create_table(
-        "graph_nodes",
-        sa.Column("id", sa.String(80), primary_key=True),
-        sa.Column("namespace_id", sa.String(128), nullable=False),
-        sa.Column("project_id", sa.String(256), nullable=True),
-        sa.Column("node_type", sa.String(128), nullable=False),
-        sa.Column("canonical_name", sa.String(512), nullable=False),
-        sa.Column("normalized_name", sa.String(512), nullable=False),
-        sa.Column(
-            "aliases",
-            postgresql.ARRAY(sa.String()),
-            nullable=False,
-            server_default=sa.text("'{}'::varchar[]"),
-        ),
-        sa.Column(
-            "metadata", postgresql.JSONB(), nullable=False, server_default=sa.text("'{}'::jsonb")
-        ),
-    )
-    op.create_index(
-        "ix_graph_nodes_lookup", "graph_nodes", ["namespace_id", "project_id", "normalized_name"]
-    )
-
-    op.create_table(
-        "graph_edges",
-        sa.Column("id", sa.String(80), primary_key=True),
-        sa.Column(
-            "source_node_id",
-            sa.String(80),
-            sa.ForeignKey("graph_nodes.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column(
-            "target_node_id",
-            sa.String(80),
-            sa.ForeignKey("graph_nodes.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
-        sa.Column("relation", sa.String(128), nullable=False),
-        sa.Column(
-            "source_memory_version_id",
-            sa.String(80),
-            sa.ForeignKey("memory_versions.id", ondelete="RESTRICT"),
-            nullable=False,
-        ),
-        sa.Column("status", sa.String(64), nullable=False),
-        sa.Column("confidence", sa.Float(), nullable=False),
-        sa.Column("usefulness_score", sa.Float(), nullable=False),
-        sa.Column("valid_from", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("valid_until", sa.DateTime(timezone=True), nullable=True),
-        sa.CheckConstraint(
-            "status in ('active','superseded','expired','contested','deleted')",
-            name="ck_graph_edges_status",
-        ),
-        sa.CheckConstraint("confidence >= 0 and confidence <= 1", name="ck_graph_edges_confidence"),
-        sa.CheckConstraint(
-            "usefulness_score >= 0 and usefulness_score <= 1",
-            name="ck_graph_edges_usefulness",
-        ),
-    )
-    op.create_index("ix_graph_edges_source", "graph_edges", ["source_node_id", "status"])
-    op.create_index("ix_graph_edges_target", "graph_edges", ["target_node_id", "status"])
-    op.create_index("ix_graph_edges_memory", "graph_edges", ["source_memory_version_id"])
-
-    op.create_table(
         "retrieval_traces",
         sa.Column("id", sa.String(80), primary_key=True),
         sa.Column("namespace_id", sa.String(128), nullable=False),
@@ -278,12 +231,7 @@ def upgrade() -> None:
             sa.ForeignKey("memory_versions.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column(
-            "graph_edge_id",
-            sa.String(80),
-            sa.ForeignKey("graph_edges.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
+        sa.Column("graph_edge_id", sa.String(80), nullable=True),
         sa.Column("final_rank", sa.Integer(), nullable=False),
         sa.Column("lexical_score", sa.Float(), nullable=True),
         sa.Column("semantic_score", sa.Float(), nullable=True),
@@ -309,12 +257,7 @@ def upgrade() -> None:
             sa.ForeignKey("memory_versions.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column(
-            "graph_edge_id",
-            sa.String(80),
-            sa.ForeignKey("graph_edges.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
+        sa.Column("graph_edge_id", sa.String(80), nullable=True),
         sa.Column("outcome", sa.String(64), nullable=False),
         sa.Column("source", sa.String(64), nullable=False),
         sa.Column("confidence", sa.Float(), nullable=False),
@@ -348,7 +291,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "type in ('extract_episode','consolidate_session',"
-            "'expire_memories','process_feedback')",
+            "'expire_memories','process_feedback','project_graph')",
             name="ck_jobs_type",
         ),
         sa.CheckConstraint(
@@ -371,10 +314,9 @@ def downgrade() -> None:
     op.drop_table("retrieval_feedback")
     op.drop_table("retrieval_items")
     op.drop_table("retrieval_traces")
-    op.drop_table("graph_edges")
-    op.drop_table("graph_nodes")
     op.drop_table("memory_sources")
     op.drop_table("memory_versions")
     op.drop_table("memories")
     op.drop_table("episodes")
+    op.execute("DROP EXTENSION IF EXISTS age")
     op.execute("DROP EXTENSION IF EXISTS vector")

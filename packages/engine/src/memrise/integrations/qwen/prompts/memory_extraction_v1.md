@@ -30,6 +30,6 @@ Rules:
 - Do not emit memories for ordinary small talk or duplicate noise.
 - Preserve scope-specific facts separately.
 - Mark hard constraints that must be recalled for relevant tasks as `must_include`.
-- Prefer deterministic operations: same value reinforces, explicit change supersedes, unresolved contradiction contests.
+- Prefer rule-based operations: same value reinforces, explicit change supersedes, unresolved contradiction contests.
 - Do not infer graph relationships unless they are supported by the accepted memory candidate.
 - Avoid thinking-mode output or explanatory text.

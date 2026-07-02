@@ -6,14 +6,12 @@ from memrise.core.models import (
     CanonicalMemory,
     Episode,
     Feedback,
-    GraphEdge,
-    GraphNode,
     MemorySource,
     RetrievalItem,
     RetrievalTrace,
     Scope,
 )
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandidate
 
 
 class MemoryStore(Protocol):
@@ -34,6 +32,8 @@ class MemoryStore(Protocol):
         *,
         scope: Scope,
         include_contested: bool = False,
+        user_id_is_wildcard: bool = False,
+        project_id_is_wildcard: bool = False,
     ) -> list[CanonicalMemory]: ...
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]: ...
@@ -55,20 +55,14 @@ class MemoryStore(Protocol):
         embedding: list[float],
     ) -> CanonicalMemory | None: ...
 
-    async def save_graph_projection(
+    async def get_memory_version_by_id(self, memory_version_id: str) -> CanonicalMemory | None: ...
+
+    async def schedule_graph_projection(
         self,
         *,
         memory: CanonicalMemory,
-        relations: list[tuple[str, str, str]],
-    ) -> list[GraphEdge]: ...
-
-    async def list_graph_neighborhood(
-        self,
-        *,
-        scope: Scope,
-        query: str | None,
-        hops: int,
-    ) -> tuple[list[GraphNode], list[GraphEdge]]: ...
+        relations: list[ExtractedGraphRelation],
+    ) -> str | None: ...
 
     async def save_retrieval_trace(
         self,
@@ -97,6 +91,8 @@ class JobQueue(Protocol):
     ) -> str: ...
 
     async def claim_next(self, *, worker_id: str) -> BackgroundJob | None: ...
+
+    async def get_job(self, job_id: str) -> BackgroundJob | None: ...
 
     async def complete(self, job_id: str) -> None: ...
 

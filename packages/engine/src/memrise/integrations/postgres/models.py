@@ -3,12 +3,21 @@ from typing import Any
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class NamespaceRow(Base):
+    __tablename__ = "namespaces"
+
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(256))
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class EpisodeRow(Base):
@@ -30,6 +39,7 @@ class EpisodeRow(Base):
     kind: Mapped[str] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
+    idempotency_key: Mapped[str | None] = mapped_column(String(512), nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
@@ -85,6 +95,7 @@ class MemoryVersionRow(Base):
     version_number: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     structured_value: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    applicability: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(64), index=True)
     confidence: Mapped[float]
     importance: Mapped[float]
@@ -107,6 +118,7 @@ class MemoryVersionRow(Base):
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class MemorySourceRow(Base):
@@ -121,48 +133,6 @@ class MemorySourceRow(Base):
         primary_key=True,
     )
     relation: Mapped[str] = mapped_column(String(64), primary_key=True)
-
-
-class GraphNodeRow(Base):
-    __tablename__ = "graph_nodes"
-
-    id: Mapped[str] = mapped_column(String(80), primary_key=True)
-    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
-    project_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
-    node_type: Mapped[str] = mapped_column(String(128))
-    canonical_name: Mapped[str] = mapped_column(String(512))
-    normalized_name: Mapped[str] = mapped_column(String(512), index=True)
-    aliases: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
-
-
-class GraphEdgeRow(Base):
-    __tablename__ = "graph_edges"
-    __table_args__ = (
-        CheckConstraint(
-            "status in ('active','superseded','expired','contested','deleted')",
-            name="ck_graph_edges_status",
-        ),
-        CheckConstraint("confidence >= 0 and confidence <= 1", name="ck_graph_edges_confidence"),
-        CheckConstraint(
-            "usefulness_score >= 0 and usefulness_score <= 1",
-            name="ck_graph_edges_usefulness",
-        ),
-    )
-
-    id: Mapped[str] = mapped_column(String(80), primary_key=True)
-    source_node_id: Mapped[str] = mapped_column(ForeignKey("graph_nodes.id", ondelete="CASCADE"))
-    target_node_id: Mapped[str] = mapped_column(ForeignKey("graph_nodes.id", ondelete="CASCADE"))
-    relation: Mapped[str] = mapped_column(String(128))
-    source_memory_version_id: Mapped[str] = mapped_column(
-        ForeignKey("memory_versions.id", ondelete="RESTRICT"),
-        index=True,
-    )
-    status: Mapped[str] = mapped_column(String(64), index=True)
-    confidence: Mapped[float]
-    usefulness_score: Mapped[float]
-    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
-    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class RetrievalTraceRow(Base):
@@ -191,10 +161,7 @@ class RetrievalItemRow(Base):
         ForeignKey("memory_versions.id", ondelete="SET NULL"),
         nullable=True,
     )
-    graph_edge_id: Mapped[str | None] = mapped_column(
-        ForeignKey("graph_edges.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    graph_edge_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     final_rank: Mapped[int] = mapped_column(Integer)
     lexical_score: Mapped[float | None] = mapped_column(nullable=True)
     semantic_score: Mapped[float | None] = mapped_column(nullable=True)
@@ -221,10 +188,7 @@ class RetrievalFeedbackRow(Base):
         ForeignKey("memory_versions.id", ondelete="SET NULL"),
         nullable=True,
     )
-    graph_edge_id: Mapped[str | None] = mapped_column(
-        ForeignKey("graph_edges.id", ondelete="SET NULL"),
-        nullable=True,
-    )
+    graph_edge_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     outcome: Mapped[str] = mapped_column(String(64))
     source: Mapped[str] = mapped_column(String(64))
     confidence: Mapped[float]
@@ -237,7 +201,7 @@ class JobRow(Base):
     __table_args__ = (
         CheckConstraint(
             "type in ('extract_episode','consolidate_session',"
-            "'expire_memories','process_feedback')",
+            "'expire_memories','process_feedback','project_graph')",
             name="ck_jobs_type",
         ),
         CheckConstraint(
@@ -259,5 +223,47 @@ class JobRow(Base):
     locked_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     dedupe_key: Mapped[str | None] = mapped_column(String(512), nullable=True, unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class ModelInvocationRow(Base):
+    __tablename__ = "model_invocations"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('succeeded','failed','retryable')", name="ck_model_invocations_status"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    purpose: Mapped[str] = mapped_column(String(128), index=True)
+    provider: Mapped[str] = mapped_column(String(128))
+    model: Mapped[str] = mapped_column(String(256))
+    prompt_version: Mapped[str] = mapped_column(String(128))
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class GraphProjectionJobRow(Base):
+    __tablename__ = "graph_projection_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('pending','completed','failed','skipped')",
+            name="ck_graph_projection_jobs_status",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    memory_version_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_versions.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    attempts: Mapped[int] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

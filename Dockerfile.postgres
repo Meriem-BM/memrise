@@ -1,0 +1,32 @@
+FROM postgres:18-bookworm
+
+ARG PGVECTOR_VERSION=v0.8.4
+ARG AGE_REF=PG18/v1.7.0-rc0
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        git \
+        libreadline-dev \
+        zlib1g-dev \
+        flex \
+        bison \
+        postgresql-server-dev-18 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --branch "${PGVECTOR_VERSION}" --depth 1 \
+        https://github.com/pgvector/pgvector.git /tmp/pgvector \
+    && cd /tmp/pgvector \
+    && make clean \
+    && make OPTFLAGS="" \
+    && make install \
+    && rm -rf /tmp/pgvector
+
+RUN git clone --branch "${AGE_REF}" --depth 1 https://github.com/apache/age.git /tmp/age \
+    && cd /tmp/age \
+    && make PG_CONFIG=/usr/lib/postgresql/18/bin/pg_config install \
+    && rm -rf /tmp/age
+
+COPY scripts/pg-extensions.sh /docker-entrypoint-initdb.d/10-pg-extensions.sh
+RUN chmod +x /docker-entrypoint-initdb.d/10-pg-extensions.sh

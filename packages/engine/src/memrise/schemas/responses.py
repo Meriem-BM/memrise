@@ -1,9 +1,19 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from memrise.core.enums import Criticality, MemoryStatus, MemoryType, RetrievalSourceType
+from memrise.core.enums import (
+    Criticality,
+    GraphEdgeStatus,
+    JobStatus,
+    JobType,
+    MemoryStatus,
+    MemoryType,
+    RetrievalSourceType,
+)
 
 
 class CaptureResponse(BaseModel):
@@ -44,6 +54,13 @@ class RetrieveResponse(BaseModel):
     critical: list[RetrievedMemory]
     memories: list[RetrievedMemory]
     context: str
+
+
+class RememberResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    memory: MemorySummary
+    source_episode_id: str | None = None
 
 
 class FeedbackResponse(BaseModel):
@@ -87,3 +104,91 @@ class MemoryExplanation(BaseModel):
     provenance_episode_ids: list[str]
     graph_edges: list[dict[str, Any]]
     retrieval_feedback: list[dict[str, Any]]
+
+
+class RetrievalItemSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    retrieval_id: str
+    memory_version_id: str | None
+    graph_edge_id: str | None
+    source_type: RetrievalSourceType
+    original_rank: int
+    final_rank: int
+    lexical_score: float | None
+    semantic_score: float | None
+    graph_score: float | None
+    usefulness_score: float
+    selected_for_context: bool
+    token_count: int
+
+
+class RetrievalDetail(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    retrieval_id: str
+    items: list[RetrievalItemSummary]
+
+
+class RetrievalTraceSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    namespace_id: str
+    agent_id: str
+    query: str
+    task_type: str | None
+    project_id: str | None
+    token_budget: int
+    created_at: datetime
+
+
+class GraphNodeSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    namespace_id: str
+    node_type: str
+    canonical_name: str
+    normalized_name: str
+    aliases: list[str]
+    metadata: dict[str, Any]
+    project_id: str | None
+
+
+class GraphEdgeSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    source_node_id: str
+    target_node_id: str
+    relation: str
+    source_memory_version_id: str
+    status: GraphEdgeStatus
+    confidence: float
+    usefulness_score: float
+    valid_from: datetime
+    valid_until: datetime | None
+
+
+class GraphNeighborhoodResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nodes: list[GraphNodeSummary]
+    edges: list[GraphEdgeSummary]
+
+
+class JobSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    type: JobType
+    status: JobStatus
+    attempts: int
+    max_attempts: int
+    run_at: datetime
+    locked_at: datetime | None
+    locked_by: str | None
+    last_error: str | None
+    created_at: datetime
+    updated_at: datetime

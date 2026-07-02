@@ -7,7 +7,6 @@ from memrise.core.enums import (
     EpisodeKind,
     FeedbackOutcome,
     FeedbackSource,
-    GraphEdgeStatus,
     JobStatus,
     JobType,
     MemoryStatus,
@@ -121,37 +120,6 @@ class MemorySource:
     memory_version_id: str
     episode_id: str
     relation: str
-
-
-@dataclass(frozen=True, slots=True)
-class GraphNode:
-    id: str
-    namespace_id: str
-    node_type: str
-    canonical_name: str
-    normalized_name: str
-    aliases: list[str]
-    metadata: JsonObject
-    project_id: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class GraphEdge:
-    id: str
-    source_node_id: str
-    target_node_id: str
-    relation: str
-    source_memory_version_id: str
-    status: GraphEdgeStatus
-    confidence: float
-    usefulness_score: float
-    valid_from: datetime
-    valid_until: datetime | None = None
-
-    def __post_init__(self) -> None:
-        require_utc(self.valid_from)
-        if self.valid_until is not None:
-            require_utc(self.valid_until)
 
 
 @dataclass(frozen=True, slots=True)
