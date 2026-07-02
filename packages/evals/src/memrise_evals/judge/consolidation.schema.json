@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["case_id", "accepted_operations"],
+  "properties": {
+    "case_id": { "type": "string" },
+    "accepted_operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["operation", "memory_type", "subject", "key"],
+        "properties": {
+          "operation": {
+            "enum": [
+              "CREATE",
+              "REINFORCE",
+              "SUPERSEDE",
+              "CONTEST",
+              "EXPIRE",
+              "DECAY",
+              "GRAPH_UPDATE",
+              "NOOP"
+            ]
+          },
+          "memory_type": { "type": "string" },
+          "subject": { "type": "string" },
+          "key": { "type": "string" }
+        }
+      }
+    }
+  }
+}
