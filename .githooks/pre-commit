@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec python3 scripts/hooks/pre_commit.py
+exec bash scripts/hooks/pre-commit.sh

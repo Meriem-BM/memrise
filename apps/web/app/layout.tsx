@@ -16,7 +16,6 @@ const nav = [
   ["/memories", "Memories"],
   ["/retrievals", "Retrievals"],
   ["/graph", "Graph"],
-  ["/evaluations", "Evaluations"],
 ];
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec python3 scripts/hooks/commit_msg.py "$1"
+exec bash scripts/hooks/commit-msg.sh "$1"

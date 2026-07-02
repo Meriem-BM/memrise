@@ -19,10 +19,7 @@
             "type": "object"
           }
         },
-        "required": [
-          "kind",
-          "content"
-        ],
+        "required": ["kind", "content"],
         "title": "CaptureEvent",
         "type": "object"
       },
@@ -81,12 +78,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "namespace_id",
-          "agent_id",
-          "session_id",
-          "events"
-        ],
+        "required": ["namespace_id", "agent_id", "session_id", "events"],
         "title": "CaptureRequest",
         "type": "object"
       },
@@ -108,10 +100,7 @@
             "type": "array"
           }
         },
-        "required": [
-          "episode_ids",
-          "job_ids"
-        ],
+        "required": ["episode_ids", "job_ids"],
         "title": "CaptureResponse",
         "type": "object"
       },
@@ -161,11 +150,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "namespace_id",
-          "agent_id",
-          "session_id"
-        ],
+        "required": ["namespace_id", "agent_id", "session_id"],
         "title": "ConsolidateRequest",
         "type": "object"
       },
@@ -181,19 +166,12 @@
             "type": "string"
           }
         },
-        "required": [
-          "job_id",
-          "accepted"
-        ],
+        "required": ["job_id", "accepted"],
         "title": "ConsolidateResponse",
         "type": "object"
       },
       "Criticality": {
-        "enum": [
-          "normal",
-          "high_priority",
-          "must_include"
-        ],
+        "enum": ["normal", "high_priority", "must_include"],
         "title": "Criticality",
         "type": "string"
       },
@@ -211,11 +189,7 @@
         "type": "string"
       },
       "FeedbackOutcome": {
-        "enum": [
-          "helpful",
-          "unused",
-          "harmful"
-        ],
+        "enum": ["helpful", "unused", "harmful"],
         "title": "FeedbackOutcome",
         "type": "string"
       },
@@ -275,10 +249,7 @@
             "title": "Task Type"
           }
         },
-        "required": [
-          "outcome",
-          "source"
-        ],
+        "required": ["outcome", "source"],
         "title": "FeedbackRequest",
         "type": "object"
       },
@@ -333,15 +304,163 @@
         "type": "object"
       },
       "FeedbackSource": {
-        "enum": [
-          "user",
-          "developer",
-          "tool",
-          "evaluator",
-          "agent"
-        ],
+        "enum": ["user", "developer", "tool", "evaluator", "agent"],
         "title": "FeedbackSource",
         "type": "string"
+      },
+      "GraphEdgeStatus": {
+        "enum": ["active", "superseded", "expired", "contested", "deleted"],
+        "title": "GraphEdgeStatus",
+        "type": "string"
+      },
+      "GraphEdgeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          },
+          "source_memory_version_id": {
+            "title": "Source Memory Version Id",
+            "type": "string"
+          },
+          "source_node_id": {
+            "title": "Source Node Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GraphEdgeStatus"
+          },
+          "target_node_id": {
+            "title": "Target Node Id",
+            "type": "string"
+          },
+          "usefulness_score": {
+            "title": "Usefulness Score",
+            "type": "number"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": [
+          "id",
+          "source_node_id",
+          "target_node_id",
+          "relation",
+          "source_memory_version_id",
+          "status",
+          "confidence",
+          "usefulness_score",
+          "valid_from",
+          "valid_until"
+        ],
+        "title": "GraphEdgeSummary",
+        "type": "object"
+      },
+      "GraphNeighborhoodResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeSummary"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeSummary"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": ["nodes", "edges"],
+        "title": "GraphNeighborhoodResponse",
+        "type": "object"
+      },
+      "GraphNodeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Aliases",
+            "type": "array"
+          },
+          "canonical_name": {
+            "title": "Canonical Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "namespace_id": {
+            "title": "Namespace Id",
+            "type": "string"
+          },
+          "node_type": {
+            "title": "Node Type",
+            "type": "string"
+          },
+          "normalized_name": {
+            "title": "Normalized Name",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          }
+        },
+        "required": [
+          "id",
+          "namespace_id",
+          "node_type",
+          "canonical_name",
+          "normalized_name",
+          "aliases",
+          "metadata",
+          "project_id"
+        ],
+        "title": "GraphNodeSummary",
+        "type": "object"
       },
       "HTTPValidationError": {
         "properties": {
@@ -355,6 +474,109 @@
         },
         "title": "HTTPValidationError",
         "type": "object"
+      },
+      "JobStatus": {
+        "enum": ["pending", "running", "completed", "failed", "retryable"],
+        "title": "JobStatus",
+        "type": "string"
+      },
+      "JobSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "locked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked By"
+          },
+          "max_attempts": {
+            "title": "Max Attempts",
+            "type": "integer"
+          },
+          "run_at": {
+            "format": "date-time",
+            "title": "Run At",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "type": {
+            "$ref": "#/components/schemas/JobType"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "status",
+          "attempts",
+          "max_attempts",
+          "run_at",
+          "locked_at",
+          "locked_by",
+          "last_error",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobSummary",
+        "type": "object"
+      },
+      "JobType": {
+        "enum": [
+          "extract_episode",
+          "consolidate_session",
+          "expire_memories",
+          "process_feedback",
+          "project_graph"
+        ],
+        "title": "JobType",
+        "type": "string"
       },
       "MemoryExplanation": {
         "additionalProperties": false,
@@ -416,14 +638,7 @@
         "type": "object"
       },
       "MemoryStatus": {
-        "enum": [
-          "candidate",
-          "active",
-          "superseded",
-          "expired",
-          "contested",
-          "deleted"
-        ],
+        "enum": ["candidate", "active", "superseded", "expired", "contested", "deleted"],
         "title": "MemoryStatus",
         "type": "string"
       },
@@ -498,27 +713,365 @@
         "type": "object"
       },
       "MemoryType": {
-        "enum": [
-          "preference",
-          "fact",
-          "decision",
-          "constraint",
-          "goal",
-          "lesson"
-        ],
+        "enum": ["preference", "fact", "decision", "constraint", "goal", "lesson"],
         "title": "MemoryType",
         "type": "string"
       },
-      "RetrievalSourceType": {
-        "enum": [
-          "critical",
-          "structured",
-          "lexical",
-          "semantic",
-          "graph"
+      "RememberRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "applicability": {
+            "additionalProperties": true,
+            "title": "Applicability",
+            "type": "object"
+          },
+          "confidence": {
+            "default": 0.9,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "content": {
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "criticality": {
+            "$ref": "#/components/schemas/Criticality",
+            "default": "normal"
+          },
+          "graph_relations": {
+            "items": {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 20,
+            "title": "Graph Relations",
+            "type": "array"
+          },
+          "importance": {
+            "default": 0.7,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Importance",
+            "type": "number"
+          },
+          "key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Key",
+            "type": "string"
+          },
+          "namespace_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Namespace Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "source_episode_content": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Episode Content"
+          },
+          "source_episode_metadata": {
+            "additionalProperties": true,
+            "title": "Source Episode Metadata",
+            "type": "object"
+          },
+          "structured_value": {
+            "additionalProperties": true,
+            "title": "Structured Value",
+            "type": "object"
+          },
+          "subject": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/components/schemas/MemoryType"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          }
+        },
+        "required": ["namespace_id", "agent_id", "subject", "key", "content", "type"],
+        "title": "RememberRequest",
+        "type": "object"
+      },
+      "RememberResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "memory": {
+            "$ref": "#/components/schemas/MemorySummary"
+          },
+          "source_episode_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Episode Id"
+          }
+        },
+        "required": ["memory"],
+        "title": "RememberResponse",
+        "type": "object"
+      },
+      "RetrievalDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalItemSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "retrieval_id": {
+            "title": "Retrieval Id",
+            "type": "string"
+          }
+        },
+        "required": ["retrieval_id", "items"],
+        "title": "RetrievalDetail",
+        "type": "object"
+      },
+      "RetrievalItemSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "final_rank": {
+            "title": "Final Rank",
+            "type": "integer"
+          },
+          "graph_edge_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Edge Id"
+          },
+          "graph_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Graph Score"
+          },
+          "lexical_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lexical Score"
+          },
+          "memory_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Version Id"
+          },
+          "original_rank": {
+            "title": "Original Rank",
+            "type": "integer"
+          },
+          "retrieval_id": {
+            "title": "Retrieval Id",
+            "type": "string"
+          },
+          "selected_for_context": {
+            "title": "Selected For Context",
+            "type": "boolean"
+          },
+          "semantic_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Semantic Score"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/RetrievalSourceType"
+          },
+          "token_count": {
+            "title": "Token Count",
+            "type": "integer"
+          },
+          "usefulness_score": {
+            "title": "Usefulness Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "retrieval_id",
+          "memory_version_id",
+          "graph_edge_id",
+          "source_type",
+          "original_rank",
+          "final_rank",
+          "lexical_score",
+          "semantic_score",
+          "graph_score",
+          "usefulness_score",
+          "selected_for_context",
+          "token_count"
         ],
+        "title": "RetrievalItemSummary",
+        "type": "object"
+      },
+      "RetrievalSourceType": {
+        "enum": ["critical", "structured", "lexical", "semantic", "graph"],
         "title": "RetrievalSourceType",
         "type": "string"
+      },
+      "RetrievalTraceSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "namespace_id": {
+            "title": "Namespace Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "task_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Type"
+          },
+          "token_budget": {
+            "title": "Token Budget",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "namespace_id",
+          "agent_id",
+          "query",
+          "task_type",
+          "project_id",
+          "token_budget",
+          "created_at"
+        ],
+        "title": "RetrievalTraceSummary",
+        "type": "object"
       },
       "RetrieveRequest": {
         "additionalProperties": false,
@@ -599,11 +1152,7 @@
             "title": "User Id"
           }
         },
-        "required": [
-          "namespace_id",
-          "agent_id",
-          "query"
-        ],
+        "required": ["namespace_id", "agent_id", "query"],
         "title": "RetrieveRequest",
         "type": "object"
       },
@@ -782,11 +1331,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError",
         "type": "object"
       }
@@ -818,9 +1363,7 @@
           }
         },
         "summary": "Live",
-        "tags": [
-          "health"
-        ]
+        "tags": ["health"]
       }
     },
     "/health/ready": {
@@ -843,9 +1386,7 @@
           }
         },
         "summary": "Ready",
-        "tags": [
-          "health"
-        ]
+        "tags": ["health"]
       }
     },
     "/v1/episodes": {
@@ -884,9 +1425,7 @@
           }
         },
         "summary": "Capture Episode",
-        "tags": [
-          "episodes"
-        ]
+        "tags": ["episodes"]
       }
     },
     "/v1/graph/neighborhood": {
@@ -977,9 +1516,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Neighborhood V1 Graph Neighborhood Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/GraphNeighborhoodResponse"
                 }
               }
             },
@@ -997,9 +1534,47 @@
           }
         },
         "summary": "Neighborhood",
-        "tags": [
-          "graph"
-        ]
+        "tags": ["graph"]
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_v1_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": ["jobs"]
       }
     },
     "/v1/memories": {
@@ -1084,9 +1659,44 @@
           }
         },
         "summary": "List Memories",
-        "tags": [
-          "memories"
-        ]
+        "tags": ["memories"]
+      },
+      "post": {
+        "operationId": "remember_v1_memories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RememberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RememberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remember",
+        "tags": ["memories"]
       }
     },
     "/v1/memories/retrieve": {
@@ -1125,9 +1735,7 @@
           }
         },
         "summary": "Retrieve",
-        "tags": [
-          "memories"
-        ]
+        "tags": ["memories"]
       }
     },
     "/v1/memories/{memory_id}": {
@@ -1167,9 +1775,7 @@
           }
         },
         "summary": "Get Memory",
-        "tags": [
-          "memories"
-        ]
+        "tags": ["memories"]
       }
     },
     "/v1/memories/{memory_id}/explanation": {
@@ -1209,9 +1815,107 @@
           }
         },
         "summary": "Explain Memory",
-        "tags": [
-          "memories"
-        ]
+        "tags": ["memories"]
+      }
+    },
+    "/v1/memories/{memory_id}/versions": {
+      "get": {
+        "operationId": "memory_versions_v1_memories__memory_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "memory_id",
+            "required": true,
+            "schema": {
+              "title": "Memory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemorySummary"
+                  },
+                  "title": "Response Memory Versions V1 Memories  Memory Id  Versions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Memory Versions",
+        "tags": ["memories"]
+      }
+    },
+    "/v1/retrievals": {
+      "get": {
+        "operationId": "list_retrievals_v1_retrievals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "namespace_id",
+            "required": true,
+            "schema": {
+              "title": "Namespace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetrievalTraceSummary"
+                  },
+                  "title": "Response List Retrievals V1 Retrievals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Retrievals",
+        "tags": ["retrievals"]
       }
     },
     "/v1/retrievals/{retrieval_id}": {
@@ -1233,9 +1937,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Get Retrieval V1 Retrievals  Retrieval Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/RetrievalDetail"
                 }
               }
             },
@@ -1253,9 +1955,7 @@
           }
         },
         "summary": "Get Retrieval",
-        "tags": [
-          "retrievals"
-        ]
+        "tags": ["retrievals"]
       }
     },
     "/v1/retrievals/{retrieval_id}/feedback": {
@@ -1305,9 +2005,7 @@
           }
         },
         "summary": "Feedback",
-        "tags": [
-          "retrievals"
-        ]
+        "tags": ["retrievals"]
       }
     },
     "/v1/sessions/{session_id}/consolidate": {
@@ -1357,9 +2055,7 @@
           }
         },
         "summary": "Consolidate",
-        "tags": [
-          "sessions"
-        ]
+        "tags": ["sessions"]
       }
     }
   }

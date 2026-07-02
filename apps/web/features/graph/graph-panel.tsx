@@ -6,25 +6,21 @@ import { Background, Controls, ReactFlow } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card, CardTitle } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api";
-
-type GraphResponse = {
-  nodes: Array<{ id: string; canonical_name: string }>;
-  edges: Array<{
-    id: string;
-    source_node_id: string;
-    target_node_id: string;
-    relation: string;
-  }>;
-};
+import { getMemriseClient } from "@/lib/api";
+import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
 export function GraphPanel() {
+  const client = getMemriseClient();
   const graph = useQuery({
     queryKey: ["graph", "atlas"],
     queryFn: () =>
-      apiFetch<GraphResponse>(
-        "/v1/graph/neighborhood?namespace_id=demo&agent_id=coding-agent&project_id=atlas&query=Atlas&hops=1",
-      ),
+      client.graphNeighborhood({
+        namespaceId: LOCAL_INSPECTOR_SCOPE.namespaceId,
+        agentId: LOCAL_INSPECTOR_SCOPE.agentId,
+        projectId: LOCAL_INSPECTOR_SCOPE.projectId,
+        query: "Atlas",
+        hops: 1,
+      }),
     retry: false,
   });
   const nodes = (graph.data?.nodes ?? []).map((node, index) => ({

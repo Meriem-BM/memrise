@@ -7,10 +7,9 @@ ENV UV_CACHE_DIR=/tmp/uv-cache \
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.11.8 /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock ./
-COPY packages/engine/pyproject.toml packages/engine/pyproject.toml
-COPY apps/api/pyproject.toml apps/api/pyproject.toml
-COPY apps/worker/pyproject.toml apps/worker/pyproject.toml
-COPY packages/evals/pyproject.toml packages/evals/pyproject.toml
+COPY packages/engine packages/engine
+COPY apps/api apps/api
+COPY apps/worker apps/worker
 RUN uv sync --frozen --all-packages --no-dev
 COPY . .
 
@@ -20,4 +19,3 @@ CMD ["memrise-api"]
 
 FROM base AS worker
 CMD ["memrise-worker"]
-

@@ -4,7 +4,8 @@ from fastapi.exceptions import RequestValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-from memrise_api.errors import ApiError
+from memrise.integrations.qwen.errors import QwenProviderError
+from memrise_api.errors import ApiError, DependencyUnavailableError
 
 
 async def error_handler_middleware(
@@ -15,6 +16,14 @@ async def error_handler_middleware(
         return await call_next(request)
     except ApiError as exc:
         return _error_response(request, exc.status_code, exc.code, exc.message)
+    except QwenProviderError as exc:
+        unavailable = DependencyUnavailableError(str(exc))
+        return _error_response(
+            request,
+            unavailable.status_code,
+            unavailable.code,
+            unavailable.message,
+        )
     except RequestValidationError as exc:
         return _error_response(request, 422, "validation_error", str(exc))
     except Exception:

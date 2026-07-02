@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 
-from memrise import Memory
+from memrise import Memrise
 from memrise.runtime.settings import MemorySettings
 from memrise_worker.runner import WorkerRunner
 
@@ -10,7 +10,7 @@ from memrise_worker.runner import WorkerRunner
 async def amain() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     settings = MemorySettings()
-    runner = WorkerRunner(memory=Memory.from_env(), settings=settings)
+    runner = WorkerRunner(memory=Memrise.from_env(), settings=settings)
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

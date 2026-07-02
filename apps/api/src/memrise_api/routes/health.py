@@ -1,7 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 from memrise.integrations.postgres.health import check_database_connectivity
-from memrise.runtime.settings import MemorySettings
 from memrise_api.errors import DependencyUnavailableError
 
 router = APIRouter(tags=["health"])
@@ -13,12 +12,12 @@ async def live() -> dict[str, str]:
 
 
 @router.get("/health/ready")
-async def ready() -> dict[str, str]:
-    settings = MemorySettings()
+async def ready(request: Request) -> dict[str, str]:
+    settings = request.app.state.engine_settings
     if settings.database_url is None:
         return {"status": "ok", "database": "not_configured"}
     try:
-        await check_database_connectivity(settings.database_url)
+        details = await check_database_connectivity(settings.database_url)
     except Exception as exc:
         raise DependencyUnavailableError("database unavailable") from exc
-    return {"status": "ok", "database": "ok"}
+    return {"status": "ok", **details}

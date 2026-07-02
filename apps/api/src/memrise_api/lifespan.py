@@ -3,13 +3,15 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from memrise import Memory
+from memrise import Memrise
 from memrise.runtime.settings import MemorySettings
+from memrise_api.settings import ApiSettings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    settings = MemorySettings()
-    app.state.settings = settings
-    app.state.memory = Memory.from_env()
+    app.state.api_settings = ApiSettings()
+    app.state.engine_settings = MemorySettings()
+    app.state.settings = app.state.api_settings
+    app.state.memory = Memrise.from_env()
     yield

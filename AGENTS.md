@@ -8,7 +8,7 @@ This repository is `memrise` (product name: Memrise), a framework-independent te
 
 - `core/`: dataclasses, enums, pure lifecycle concepts only.
 - `ports/`: Protocol interfaces for stores, jobs, providers, clocks, IDs, token counters.
-- `integrations/`: PostgreSQL, Qwen, and deterministic in-memory implementations.
+- `integrations/`: PostgreSQL and Qwen implementations only. Do not add in-app fake model or in-memory runtime fallbacks.
 - `runtime/`: composition root only.
 - `apps/api`: request validation, auth, dependency injection, error translation, HTTP status codes.
 - `apps/worker`: claims jobs and calls engine services.
@@ -37,7 +37,7 @@ Alembic migrations are the only schema setup path. Keep downgrade behavior expli
 
 ## Generated Files
 
-`docs/openapi.json` and `packages/sdk-typescript/src/generated/api-types.ts` are generated. Do not hand-maintain duplicate TypeScript API interfaces.
+`contracts/openapi.json` and `packages/sdk-typescript/src/generated/api-types.ts` are generated. Do not hand-maintain duplicate TypeScript API interfaces.
 
 ## Definition Of Done
 

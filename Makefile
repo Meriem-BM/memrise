@@ -1,6 +1,6 @@
 UV_ENV=UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python
 
-.PHONY: bootstrap install-hooks dev stop logs format format-check lint typecheck test test-integration check migrate migration seed export-openapi generate-sdk eval
+.PHONY: bootstrap install-hooks dev stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset migrate migration export-openapi generate-sdk
 
 bootstrap:
 	$(UV_ENV) uv sync --all-packages
@@ -35,31 +35,48 @@ lint:
 
 typecheck:
 	$(UV_ENV) uv run pyright
+	pnpm --filter memrise-memory-sdk build
 	pnpm --recursive typecheck
 
 test:
-	$(UV_ENV) uv run pytest packages/engine/tests/unit packages/evals/tests tests/contract
+	$(UV_ENV) uv run pytest tests/unit tests/api tests/contract
 	pnpm --recursive test
 
 test-integration:
 	$(UV_ENV) uv run pytest tests/integration
 
+test-e2e:
+	pnpm --filter @memrise/web test:e2e
+
 check: lint typecheck test
 
+build: generate-sdk
+	pnpm --recursive build
+	$(UV_ENV) uv build --package memrise-memory --out-dir /tmp/memrise-package-check/python
+	$(UV_ENV) uv build --package memrise-api --out-dir /tmp/memrise-package-check/python
+	$(UV_ENV) uv build --package memrise-worker --out-dir /tmp/memrise-package-check/python
+
+package-check: build
+	mkdir -p /tmp/memrise-package-check/js
+	pnpm --filter memrise-memory-sdk pack --pack-destination /tmp/memrise-package-check/js
+
 migrate:
+	$(UV_ENV) uv run alembic -c packages/engine/alembic.ini upgrade head
+
+db-reset:
+	docker compose down -v
+	docker compose up -d postgres
 	$(UV_ENV) uv run alembic -c packages/engine/alembic.ini upgrade head
 
 migration:
 	$(UV_ENV) uv run alembic -c packages/engine/alembic.ini revision --autogenerate -m "$(name)"
 
-seed:
-	$(UV_ENV) uv run python scripts/seed_demo.py
-
 export-openapi:
 	$(UV_ENV) uv run python scripts/export_openapi.py
+	pnpm exec prettier --write contracts/openapi.json --ignore-unknown
 
 generate-sdk: export-openapi
-	pnpm --filter @memrise/sdk generate
+	pnpm --filter memrise-memory-sdk generate
+	pnpm exec prettier --write packages/sdk-typescript/src/generated/api-types.ts --ignore-unknown
 
-eval:
-	$(UV_ENV) uv run python scripts/run_evals.py
+

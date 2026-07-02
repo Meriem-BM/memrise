@@ -1,17 +1,23 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Send, ThumbsUp } from "lucide-react";
+import { Loader2, Send, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getMemoryClient } from "@/lib/api";
+import {
+  CaptureOutcomePanel,
+  type CaptureJob,
+  type CaptureOutcome,
+} from "@/features/playground/capture-outcome-panel";
+import { getMemriseClient } from "@/lib/api";
+import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
 export function PlaygroundPanel() {
-  const client = getMemoryClient();
+  const client = getMemriseClient();
   const [message, setMessage] = useState(
     "Atlaused npm before, but we now use pnpm. Never edit its generated lockfile manually.",
   );
@@ -20,28 +26,67 @@ export function PlaygroundPanel() {
   const [memoryVersionId, setMemoryVersionId] = useState<string | null>(null);
 
   const capture = useMutation({
-    mutationFn: () =>
-      client.capture({
-        namespace_id: "demo",
-        agent_id: "coding-agent",
-        session_id: "session-1",
-        user_id: "user-1",
-        project_id: "atlas",
+    mutationFn: async (): Promise<CaptureOutcome> => {
+      const startedAt = Date.now();
+      const captureResult = await client.capture({
+        ...LOCAL_INSPECTOR_SCOPE,
         events: [{ kind: "user_message", content: message, metadata: {} }],
-      }),
+      });
+
+      if (captureResult.job_ids.length === 0) {
+        return {
+          episodeIds: captureResult.episode_ids,
+          jobs: [],
+          memories: [],
+          skippedExtraction: true,
+        };
+      }
+
+      const jobs: CaptureJob[] = [];
+      for (const jobId of captureResult.job_ids) {
+        const job = await client.waitForJob(jobId, { timeoutMs: 120_000, pollMs: 500 });
+        jobs.push({
+          id: job.id,
+          type: job.type,
+          status: job.status,
+          last_error: job.last_error,
+        });
+      }
+
+      const listed = await client.listMemories({
+        namespaceId: LOCAL_INSPECTOR_SCOPE.namespaceId,
+        agentId: LOCAL_INSPECTOR_SCOPE.agentId,
+        projectId: LOCAL_INSPECTOR_SCOPE.projectId,
+      });
+      const memories = listed
+        .filter((memory) => Date.parse(memory.created_at) >= startedAt - 5_000)
+        .map((memory) => ({
+          memory_id: memory.memory_id,
+          subject: memory.subject,
+          key: memory.key,
+          content: memory.content,
+          status: memory.status,
+          type: memory.type,
+        }));
+
+      return {
+        episodeIds: captureResult.episode_ids,
+        jobs,
+        memories,
+        skippedExtraction: false,
+      };
+    },
   });
+
   const retrieve = useMutation({
     mutationFn: () =>
       client.retrieve({
-        namespace_id: "demo",
-        agent_id: "coding-agent",
-        user_id: "user-1",
-        project_id: "atlas",
+        ...LOCAL_INSPECTOR_SCOPE,
         query,
-        task_type: "dependency_install",
-        token_budget: 800,
+        taskType: "dependency_install",
+        tokenBudget: 800,
         limit: 10,
-        graph_hops: 1,
+        graphHops: 1,
       }),
     onSuccess: (data) => {
       setRetrievalId(data.retrieval_id);
@@ -50,6 +95,7 @@ export function PlaygroundPanel() {
       );
     },
   });
+
   const feedback = useMutation({
     mutationFn: () => {
       if (!retrievalId || !memoryVersionId) {
@@ -58,7 +104,7 @@ export function PlaygroundPanel() {
       return client.feedback(retrievalId, {
         outcome: "helpful",
         source: "developer",
-        memory_version_id: memoryVersionId,
+        memoryVersionId: memoryVersionId,
       });
     },
   });
@@ -77,12 +123,13 @@ export function PlaygroundPanel() {
           onClick={() => capture.mutate()}
           disabled={capture.isPending}
         >
-          <Send size={16} />
-          Capture
+          {capture.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+          {capture.isPending ? "Extracting…" : "Capture"}
         </Button>
-        {capture.data ? (
-          <pre className="mt-3 overflow-auto text-xs">{JSON.stringify(capture.data, null, 2)}</pre>
+        {capture.isError ? (
+          <p className="mt-3 text-sm text-red-600">{capture.error.message}</p>
         ) : null}
+        {capture.data ? <CaptureOutcomePanel outcome={capture.data} /> : null}
       </Card>
       <Card>
         <CardTitle>Retrieve</CardTitle>
@@ -100,10 +147,16 @@ export function PlaygroundPanel() {
             Helpful
           </Button>
         </div>
+        {retrieve.isError ? (
+          <p className="mt-3 text-sm text-red-600">{retrieve.error.message}</p>
+        ) : null}
         {retrieve.data ? (
           <pre className="mt-3 max-h-96 overflow-auto text-xs">
             {JSON.stringify(retrieve.data, null, 2)}
           </pre>
+        ) : null}
+        {feedback.isError ? (
+          <p className="mt-3 text-sm text-red-600">{feedback.error.message}</p>
         ) : null}
         {feedback.data ? (
           <pre className="mt-3 overflow-auto text-xs">{JSON.stringify(feedback.data, null, 2)}</pre>

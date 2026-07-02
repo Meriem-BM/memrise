@@ -2,30 +2,26 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import type { components } from "memrise-memory-sdk";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { apiFetch } from "@/lib/api";
+import { getMemriseClient } from "@/lib/api";
+import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
-type MemorySummary = {
-  memory_id: string;
-  type: string;
-  subject: string;
-  key: string;
-  content: string;
-  status: string;
-  criticality: string;
-  usefulness_score: number;
-};
+type MemorySummary = components["schemas"]["MemorySummary"];
 
 export function MemoriesPanel() {
+  const client = getMemriseClient();
   const memories = useQuery({
     queryKey: ["memories", "list"],
     queryFn: () =>
-      apiFetch<MemorySummary[]>(
-        "/v1/memories?namespace_id=demo&agent_id=coding-agent&project_id=atlas",
-      ),
+      client.listMemories({
+        namespaceId: LOCAL_INSPECTOR_SCOPE.namespaceId,
+        agentId: LOCAL_INSPECTOR_SCOPE.agentId,
+        projectId: LOCAL_INSPECTOR_SCOPE.projectId,
+      }),
     retry: false,
   });
   return (
@@ -35,7 +31,7 @@ export function MemoriesPanel() {
         <Input className="max-w-xs" placeholder="Filter" />
       </div>
       <div className="mt-4 divide-y divide-slate-200">
-        {(memories.data ?? []).map((memory) => (
+        {(memories.data ?? []).map((memory: MemorySummary) => (
           <Link
             key={memory.memory_id}
             href={`/memories/${memory.memory_id}`}

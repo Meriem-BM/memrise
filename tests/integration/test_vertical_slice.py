@@ -8,7 +8,7 @@ from memrise import Memory
 from memrise.core.enums import EpisodeKind, FeedbackOutcome, FeedbackSource
 
 DEMO_EPISODE = (
-    "Atlaused npm before, but we now use pnpm. Never edit its generated lockfile manually."
+    "Atlas used npm before, but we now use pnpm. Never edit its generated lockfile manually."
 )
 
 pytestmark = pytest.mark.asyncio
@@ -53,7 +53,7 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
     await engine.dispose()
 
 
-async def test_postgres_first_vertical_slice() -> None:
+async def test_vertical_slice_end_to_end() -> None:
     memory = Memory.from_env()
     capture = await memory.capture(
         namespace_id="it",

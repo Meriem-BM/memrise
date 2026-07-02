@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_v1_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/memories": {
         parameters: {
             query?: never;
@@ -82,7 +99,8 @@ export interface paths {
         /** List Memories */
         get: operations["list_memories_v1_memories_get"];
         put?: never;
-        post?: never;
+        /** Remember */
+        post: operations["remember_v1_memories_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -132,6 +150,40 @@ export interface paths {
         };
         /** Explain Memory */
         get: operations["explain_memory_v1_memories__memory_id__explanation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/memories/{memory_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Memory Versions */
+        get: operations["memory_versions_v1_memories__memory_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/retrievals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Retrievals */
+        get: operations["list_retrievals_v1_retrievals_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -291,11 +343,111 @@ export interface components {
          * @enum {string}
          */
         FeedbackSource: "user" | "developer" | "tool" | "evaluator" | "agent";
+        /**
+         * GraphEdgeStatus
+         * @enum {string}
+         */
+        GraphEdgeStatus: "active" | "superseded" | "expired" | "contested" | "deleted";
+        /** GraphEdgeSummary */
+        GraphEdgeSummary: {
+            /** Confidence */
+            confidence: number;
+            /** Id */
+            id: string;
+            /** Relation */
+            relation: string;
+            /** Source Memory Version Id */
+            source_memory_version_id: string;
+            /** Source Node Id */
+            source_node_id: string;
+            status: components["schemas"]["GraphEdgeStatus"];
+            /** Target Node Id */
+            target_node_id: string;
+            /** Usefulness Score */
+            usefulness_score: number;
+            /**
+             * Valid From
+             * Format: date-time
+             */
+            valid_from: string;
+            /** Valid Until */
+            valid_until: string | null;
+        };
+        /** GraphNeighborhoodResponse */
+        GraphNeighborhoodResponse: {
+            /** Edges */
+            edges: components["schemas"]["GraphEdgeSummary"][];
+            /** Nodes */
+            nodes: components["schemas"]["GraphNodeSummary"][];
+        };
+        /** GraphNodeSummary */
+        GraphNodeSummary: {
+            /** Aliases */
+            aliases: string[];
+            /** Canonical Name */
+            canonical_name: string;
+            /** Id */
+            id: string;
+            /** Metadata */
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** Namespace Id */
+            namespace_id: string;
+            /** Node Type */
+            node_type: string;
+            /** Normalized Name */
+            normalized_name: string;
+            /** Project Id */
+            project_id: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "pending" | "running" | "completed" | "failed" | "retryable";
+        /** JobSummary */
+        JobSummary: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /** Locked At */
+            locked_at: string | null;
+            /** Locked By */
+            locked_by: string | null;
+            /** Max Attempts */
+            max_attempts: number;
+            /**
+             * Run At
+             * Format: date-time
+             */
+            run_at: string;
+            status: components["schemas"]["JobStatus"];
+            type: components["schemas"]["JobType"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * JobType
+         * @enum {string}
+         */
+        JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "process_feedback" | "project_graph";
         /** MemoryExplanation */
         MemoryExplanation: {
             current_version: components["schemas"]["MemorySummary"] | null;
@@ -349,11 +501,124 @@ export interface components {
          * @enum {string}
          */
         MemoryType: "preference" | "fact" | "decision" | "constraint" | "goal" | "lesson";
+        /** RememberRequest */
+        RememberRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /** Applicability */
+            applicability?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Confidence
+             * @default 0.9
+             */
+            confidence: number;
+            /** Content */
+            content: string;
+            /** @default normal */
+            criticality: components["schemas"]["Criticality"];
+            /** Graph Relations */
+            graph_relations?: [
+                string,
+                string,
+                string
+            ][];
+            /**
+             * Importance
+             * @default 0.7
+             */
+            importance: number;
+            /** Key */
+            key: string;
+            /** Namespace Id */
+            namespace_id: string;
+            /** Project Id */
+            project_id?: string | null;
+            /** Source Episode Content */
+            source_episode_content?: string | null;
+            /** Source Episode Metadata */
+            source_episode_metadata?: {
+                [key: string]: unknown;
+            };
+            /** Structured Value */
+            structured_value?: {
+                [key: string]: unknown;
+            };
+            /** Subject */
+            subject: string;
+            type: components["schemas"]["MemoryType"];
+            /** User Id */
+            user_id?: string | null;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
+        /** RememberResponse */
+        RememberResponse: {
+            memory: components["schemas"]["MemorySummary"];
+            /** Source Episode Id */
+            source_episode_id?: string | null;
+        };
+        /** RetrievalDetail */
+        RetrievalDetail: {
+            /** Items */
+            items: components["schemas"]["RetrievalItemSummary"][];
+            /** Retrieval Id */
+            retrieval_id: string;
+        };
+        /** RetrievalItemSummary */
+        RetrievalItemSummary: {
+            /** Final Rank */
+            final_rank: number;
+            /** Graph Edge Id */
+            graph_edge_id: string | null;
+            /** Graph Score */
+            graph_score: number | null;
+            /** Lexical Score */
+            lexical_score: number | null;
+            /** Memory Version Id */
+            memory_version_id: string | null;
+            /** Original Rank */
+            original_rank: number;
+            /** Retrieval Id */
+            retrieval_id: string;
+            /** Selected For Context */
+            selected_for_context: boolean;
+            /** Semantic Score */
+            semantic_score: number | null;
+            source_type: components["schemas"]["RetrievalSourceType"];
+            /** Token Count */
+            token_count: number;
+            /** Usefulness Score */
+            usefulness_score: number;
+        };
         /**
          * RetrievalSourceType
          * @enum {string}
          */
         RetrievalSourceType: "critical" | "structured" | "lexical" | "semantic" | "graph";
+        /** RetrievalTraceSummary */
+        RetrievalTraceSummary: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            /** Namespace Id */
+            namespace_id: string;
+            /** Project Id */
+            project_id: string | null;
+            /** Query */
+            query: string;
+            /** Task Type */
+            task_type: string | null;
+            /** Token Budget */
+            token_budget: number;
+        };
         /** RetrieveRequest */
         RetrieveRequest: {
             /** Agent Id */
@@ -556,9 +821,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["GraphNeighborhoodResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_v1_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobSummary"];
                 };
             };
             /** @description Validation Error */
@@ -593,6 +887,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MemorySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remember_v1_memories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RememberRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RememberResponse"];
                 };
             };
             /** @description Validation Error */
@@ -701,6 +1028,69 @@ export interface operations {
             };
         };
     };
+    memory_versions_v1_memories__memory_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                memory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemorySummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_retrievals_v1_retrievals_get: {
+        parameters: {
+            query: {
+                namespace_id: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetrievalTraceSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_retrieval_v1_retrievals__retrieval_id__get: {
         parameters: {
             query?: never;
@@ -718,9 +1108,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["RetrievalDetail"];
                 };
             };
             /** @description Validation Error */

@@ -1,11 +1,21 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from memrise_api.lifespan import lifespan
 from memrise_api.middleware.api_key import api_key_middleware
 from memrise_api.middleware.error_handler import error_handler_middleware
 from memrise_api.middleware.request_id import request_id_middleware
-from memrise_api.routes import episodes, graph, health, memories, retrievals, sessions
+from memrise_api.routes import (
+    episodes,
+    graph,
+    health,
+    jobs,
+    memories,
+    retrievals,
+    sessions,
+)
+from memrise_api.settings import ApiSettings
 
 
 def create_app() -> FastAPI:
@@ -23,6 +33,22 @@ def create_app() -> FastAPI:
     app.include_router(retrievals.router)
     app.include_router(sessions.router)
     app.include_router(graph.router)
+    app.include_router(jobs.router)
+
+    api_settings = ApiSettings()
+    cors_origins = [
+        origin.strip() for origin in api_settings.memrise_cors_origins.split(",") if origin.strip()
+    ]
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=["x-request-id"],
+        )
+
     return app
 
 

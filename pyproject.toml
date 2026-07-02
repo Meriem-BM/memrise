@@ -13,14 +13,12 @@ members = [
   "apps/api",
   "apps/worker",
   "packages/engine",
-  "packages/evals",
 ]
 
 [tool.uv.sources]
-memrise = { workspace = true }
+memrise-memory = { workspace = true }
 memrise-api = { workspace = true }
 memrise-worker = { workspace = true }
-memrise-evals = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -37,7 +35,6 @@ src = [
   "apps/api/src",
   "apps/worker/src",
   "packages/engine/src",
-  "packages/evals/src",
   "scripts",
   "tests",
 ]
@@ -48,9 +45,10 @@ ignore = ["B008"]
 
 [tool.pytest.ini_options]
 minversion = "9.0"
+pythonpath = ["."]
 testpaths = [
-  "packages/engine/tests/unit",
-  "packages/evals/tests",
+  "tests/unit",
+  "tests/api",
   "tests/contract",
 ]
 asyncio_mode = "auto"
@@ -64,7 +62,7 @@ include = [
   "apps/api/src",
   "apps/worker/src",
   "packages/engine/src",
-  "packages/evals/src",
   "scripts",
+  "tests",
 ]
 exclude = ["**/.venv", "**/__pycache__"]

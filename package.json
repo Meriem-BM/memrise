@@ -11,14 +11,14 @@
     "format": "uv run ruff format . && prettier --write . --ignore-unknown",
     "format:check": "uv run ruff format --check . && prettier --check . --ignore-unknown",
     "lint": "uv run ruff check . && pnpm --recursive lint",
-    "typecheck": "uv run pyright && pnpm --recursive typecheck",
+    "typecheck": "uv run pyright && pnpm --filter memrise-memory-sdk build && pnpm --recursive typecheck",
     "test": "pnpm --recursive test",
     "build": "pnpm --recursive build",
-    "generate:sdk": "pnpm --filter @memrise/sdk generate",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "generate:sdk": "pnpm --filter memrise-memory-sdk generate",
+    "check": "make check",
     "hooks:install": "git config core.hooksPath .githooks",
-    "hooks:pre-commit": "python3 scripts/hooks/pre_commit.py",
-    "hooks:commit-msg": "python3 scripts/hooks/commit_msg.py"
+    "hooks:pre-commit": "bash scripts/hooks/pre-commit.sh",
+    "hooks:commit-msg": "bash scripts/hooks/commit-msg.sh"
   },
   "devDependencies": {
     "prettier": "3.9.4"

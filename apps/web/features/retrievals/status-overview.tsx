@@ -2,35 +2,37 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Database, History } from "lucide-react";
+import type { components } from "memrise-memory-sdk";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api";
+import { getMemriseClient } from "@/lib/api";
 import { formatCount } from "@/lib/format";
+import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
-type MemorySummary = {
-  status: string;
-  criticality: string;
-};
+type MemorySummary = components["schemas"]["MemorySummary"];
 
 export function StatusOverview() {
+  const client = getMemriseClient();
   const health = useQuery({
     queryKey: ["health"],
-    queryFn: () => apiFetch<{ status: string; database?: string }>("/health/ready"),
+    queryFn: () => client.healthReady(),
     retry: false,
   });
   const memories = useQuery({
-    queryKey: ["memories", "demo"],
+    queryKey: ["memories", "local"],
     queryFn: () =>
-      apiFetch<MemorySummary[]>(
-        "/v1/memories?namespace_id=demo&agent_id=coding-agent&project_id=atlas",
-      ),
+      client.listMemories({
+        namespaceId: LOCAL_INSPECTOR_SCOPE.namespaceId,
+        agentId: LOCAL_INSPECTOR_SCOPE.agentId,
+        projectId: LOCAL_INSPECTOR_SCOPE.projectId,
+      }),
     retry: false,
   });
   const rows = memories.data ?? [];
-  const active = rows.filter((row) => row.status === "active").length;
-  const contested = rows.filter((row) => row.status === "contested").length;
-  const critical = rows.filter((row) => row.criticality === "must_include").length;
+  const active = rows.filter((row: MemorySummary) => row.status === "active").length;
+  const contested = rows.filter((row: MemorySummary) => row.status === "contested").length;
+  const critical = rows.filter((row: MemorySummary) => row.criticality === "must_include").length;
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">

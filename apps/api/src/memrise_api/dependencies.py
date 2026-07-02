@@ -2,11 +2,11 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from memrise import Memory
+from memrise import Memrise
 
 
-def get_memory(request: Request) -> Memory:
+def get_memory(request: Request) -> Memrise:
     return request.app.state.memory
 
 
-MemoryDep = Annotated[Memory, Depends(get_memory)]
+MemoryDep = Annotated[Memrise, Depends(get_memory)]

@@ -15,16 +15,15 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@memrise/sdk": "workspace:*",
+    "memrise-memory-sdk": "workspace:*",
     "@tanstack/react-query": "5.101.2",
     "@xyflow/react": "12.11.1",
     "clsx": "2.1.1",
     "lucide-react": "1.23.0",
-    "next": "16.2.9",
+    "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",
-    "tailwind-merge": "3.6.0",
-    "zod": "4.4.3"
+    "tailwind-merge": "3.6.0"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
@@ -33,7 +32,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.2.10",
     "prettier": "3.9.4",
     "tailwindcss": "4.3.2",
     "typescript": "6.0.3",

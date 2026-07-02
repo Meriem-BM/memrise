@@ -23,13 +23,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: uv run ruff format --check .
       - run: uv run ruff check .
+      - run: pnpm exec prettier --check . --ignore-unknown
       - run: uv run pyright
-      - run: uv run pytest packages/engine/tests/unit packages/evals/tests tests/contract
+      - run: uv run pytest tests/unit tests/api tests/contract
       - run: pnpm --recursive lint
+      - run: pnpm --filter memrise-memory-sdk build
       - run: pnpm --recursive typecheck
       - run: pnpm --recursive test
-      - run: pnpm --filter @memrise/sdk build
       - run: pnpm --filter @memrise/web build
       - run: uv run python scripts/export_openapi.py
-      - run: pnpm --filter @memrise/sdk generate
-      - run: git diff --exit-code docs/openapi.json packages/sdk-typescript/src/generated/api-types.ts
+      - run: pnpm --filter memrise-memory-sdk generate
+      - run: git diff --exit-code contracts/openapi.json packages/sdk-typescript/src/generated/api-types.ts

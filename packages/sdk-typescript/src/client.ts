@@ -1,74 +1,113 @@
 import type { paths } from "./generated/api-types.js";
+import type {
+  CaptureInput,
+  ConsolidateInput,
+  FeedbackInput,
+  MemriseClientOptions,
+  RememberInput,
+  RetrieveInput,
+} from "./client-types.js";
 import { MemoryClientError } from "./errors.js";
+import {
+  readError,
+  toCaptureBody,
+  toConsolidateBody,
+  toFeedbackBody,
+  toQuery,
+  toRememberBody,
+  toRetrieveBody,
+} from "./mappers.js";
+import { waitForJobCompletion } from "./polling.js";
 
-type CaptureBody = paths["/v1/episodes"]["post"]["requestBody"]["content"]["application/json"];
 type CaptureResponse =
   paths["/v1/episodes"]["post"]["responses"]["202"]["content"]["application/json"];
-type RetrieveBody =
-  paths["/v1/memories/retrieve"]["post"]["requestBody"]["content"]["application/json"];
+type RememberResponse =
+  paths["/v1/memories"]["post"]["responses"]["201"]["content"]["application/json"];
 type RetrieveResponse =
   paths["/v1/memories/retrieve"]["post"]["responses"]["201"]["content"]["application/json"];
-type FeedbackBody =
-  paths["/v1/retrievals/{retrieval_id}/feedback"]["post"]["requestBody"]["content"]["application/json"];
 type FeedbackResponse =
   paths["/v1/retrievals/{retrieval_id}/feedback"]["post"]["responses"]["201"]["content"]["application/json"];
-type ConsolidateBody =
-  paths["/v1/sessions/{session_id}/consolidate"]["post"]["requestBody"]["content"]["application/json"];
 type ConsolidateResponse =
   paths["/v1/sessions/{session_id}/consolidate"]["post"]["responses"]["202"]["content"]["application/json"];
 type ExplanationResponse =
   paths["/v1/memories/{memory_id}/explanation"]["get"]["responses"]["200"]["content"]["application/json"];
+type MemoryResponse =
+  paths["/v1/memories/{memory_id}"]["get"]["responses"]["200"]["content"]["application/json"];
+type VersionsResponse =
+  paths["/v1/memories/{memory_id}/versions"]["get"]["responses"]["200"]["content"]["application/json"];
+type RetrievalResponse =
+  paths["/v1/retrievals/{retrieval_id}"]["get"]["responses"]["200"]["content"]["application/json"];
+type GraphNeighborhoodResponse =
+  paths["/v1/graph/neighborhood"]["get"]["responses"]["200"]["content"]["application/json"];
+type JobResponse =
+  paths["/v1/jobs/{job_id}"]["get"]["responses"]["200"]["content"]["application/json"];
+type HealthLiveResponse =
+  paths["/health/live"]["get"]["responses"]["200"]["content"]["application/json"];
+type HealthReadyResponse =
+  paths["/health/ready"]["get"]["responses"]["200"]["content"]["application/json"];
+type RetrievalTraceSummary =
+  paths["/v1/retrievals"]["get"]["responses"]["200"]["content"]["application/json"][number];
+export type {
+  CaptureEventInput,
+  CaptureInput,
+  ConsolidateInput,
+  FeedbackInput,
+  HealthLiveResponse,
+  HealthReadyResponse,
+  MemriseClientOptions,
+  MemoryClientOptions,
+  RememberInput,
+  RetrievalTraceSummary,
+  RetrieveInput,
+} from "./client-types.js";
 
-export interface MemoryClientOptions {
-  baseUrl: string;
-  apiKey: string;
-  timeoutMs?: number;
-  fetchImpl?: typeof fetch;
-}
-
-export class MemoryClient {
+export class MemriseClient {
   readonly #baseUrl: string;
   readonly #apiKey: string;
   readonly #timeoutMs: number;
   readonly #fetch: typeof fetch;
 
-  constructor(options: MemoryClientOptions) {
+  constructor(options: MemriseClientOptions) {
     this.#baseUrl = options.baseUrl.replace(/\/$/, "");
     this.#apiKey = options.apiKey;
     this.#timeoutMs = options.timeoutMs ?? 30_000;
-    this.#fetch = options.fetchImpl ?? fetch;
+    this.#fetch = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
   }
 
-  capture(body: CaptureBody, options: { signal?: AbortSignal } = {}): Promise<CaptureResponse> {
-    return this.#request("POST", "/v1/episodes", body, options.signal);
+  capture(body: CaptureInput, options: { signal?: AbortSignal } = {}): Promise<CaptureResponse> {
+    return this.#request("POST", "/v1/episodes", toCaptureBody(body), options.signal);
   }
 
-  retrieve(body: RetrieveBody, options: { signal?: AbortSignal } = {}): Promise<RetrieveResponse> {
-    return this.#request("POST", "/v1/memories/retrieve", body, options.signal);
+  remember(body: RememberInput, options: { signal?: AbortSignal } = {}): Promise<RememberResponse> {
+    return this.#request("POST", "/v1/memories", toRememberBody(body), options.signal);
+  }
+
+  retrieve(body: RetrieveInput, options: { signal?: AbortSignal } = {}): Promise<RetrieveResponse> {
+    return this.#request("POST", "/v1/memories/retrieve", toRetrieveBody(body), options.signal);
   }
 
   feedback(
     retrievalId: string,
-    body: FeedbackBody,
+    body: FeedbackInput,
     options: { signal?: AbortSignal } = {},
   ): Promise<FeedbackResponse> {
     return this.#request(
       "POST",
       `/v1/retrievals/${encodeURIComponent(retrievalId)}/feedback`,
-      body,
+      toFeedbackBody(body),
       options.signal,
     );
   }
 
   consolidate(
     sessionId: string,
-    body: ConsolidateBody,
+    body: ConsolidateInput,
     options: { signal?: AbortSignal } = {},
   ): Promise<ConsolidateResponse> {
     return this.#request(
       "POST",
       `/v1/sessions/${encodeURIComponent(sessionId)}/consolidate`,
-      body,
+      toConsolidateBody(body),
       options.signal,
     );
   }
@@ -80,6 +119,128 @@ export class MemoryClient {
       undefined,
       options.signal,
     );
+  }
+
+  getMemory(memoryId: string, options: { signal?: AbortSignal } = {}): Promise<MemoryResponse> {
+    return this.#request(
+      "GET",
+      `/v1/memories/${encodeURIComponent(memoryId)}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  getMemoryVersions(
+    memoryId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<VersionsResponse> {
+    return this.#request(
+      "GET",
+      `/v1/memories/${encodeURIComponent(memoryId)}/versions`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  listMemories(
+    query: {
+      namespaceId: string;
+      agentId: string;
+      userId?: string;
+      projectId?: string;
+    },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<MemoryResponse[]> {
+    return this.#request(
+      "GET",
+      `/v1/memories?${toQuery({
+        namespace_id: query.namespaceId,
+        agent_id: query.agentId,
+        user_id: query.userId,
+        project_id: query.projectId,
+      })}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  getRetrieval(
+    retrievalId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<RetrievalResponse> {
+    return this.#request(
+      "GET",
+      `/v1/retrievals/${encodeURIComponent(retrievalId)}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  listRetrievals(
+    query: {
+      namespaceId: string;
+      limit?: number;
+    },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<RetrievalTraceSummary[]> {
+    return this.#request(
+      "GET",
+      `/v1/retrievals?${toQuery({
+        namespace_id: query.namespaceId,
+        limit: query.limit,
+      })}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  graphNeighborhood(
+    query: {
+      namespaceId: string;
+      agentId: string;
+      userId?: string;
+      projectId?: string;
+      query?: string;
+      hops?: number;
+    },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<GraphNeighborhoodResponse> {
+    return this.#request(
+      "GET",
+      `/v1/graph/neighborhood?${toQuery({
+        namespace_id: query.namespaceId,
+        agent_id: query.agentId,
+        user_id: query.userId,
+        project_id: query.projectId,
+        query: query.query,
+        hops: query.hops,
+      })}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  getJob(jobId: string, options: { signal?: AbortSignal } = {}): Promise<JobResponse> {
+    return this.#request("GET", `/v1/jobs/${encodeURIComponent(jobId)}`, undefined, options.signal);
+  }
+
+  async waitForJob(
+    jobId: string,
+    options: { signal?: AbortSignal; timeoutMs?: number; pollMs?: number } = {},
+  ): Promise<JobResponse> {
+    return waitForJobCompletion(
+      (id, requestOptions) => this.getJob(id, requestOptions ?? {}),
+      jobId,
+      options,
+    );
+  }
+
+  healthLive(options: { signal?: AbortSignal } = {}): Promise<HealthLiveResponse> {
+    return this.#request("GET", "/health/live", undefined, options.signal);
+  }
+
+  healthReady(options: { signal?: AbortSignal } = {}): Promise<HealthReadyResponse> {
+    return this.#request("GET", "/health/ready", undefined, options.signal);
   }
 
   async #request<T>(
@@ -98,7 +259,7 @@ export class MemoryClient {
         signal: controller.signal,
         headers: {
           "content-type": "application/json",
-          "x-api-key": this.#apiKey,
+          authorization: `Bearer ${this.#apiKey}`,
         },
       };
       if (body !== undefined) {
@@ -123,20 +284,4 @@ export class MemoryClient {
   }
 }
 
-function readError(value: unknown): { code: string; message: string } {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    "error" in value &&
-    typeof value.error === "object" &&
-    value.error !== null &&
-    "code" in value.error &&
-    "message" in value.error
-  ) {
-    return {
-      code: String(value.error.code),
-      message: String(value.error.message),
-    };
-  }
-  return { code: "http_error", message: "request failed" };
-}
+export { MemriseClient as MemoryClient };

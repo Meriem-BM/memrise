@@ -6,7 +6,7 @@ import type { NextConfig } from "next";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@memrise/sdk"],
+  transpilePackages: ["memrise-memory-sdk"],
   turbopack: {
     root: resolve(currentDir, "../.."),
   },

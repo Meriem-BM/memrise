@@ -21,7 +21,7 @@ Basic vector memory usually stores mutable chunks and retrieves nearest neighbor
 
 ## Paths
 
-Write path: episode -> candidate extraction -> deterministic reconciliation -> accepted memory version -> embedding/search document -> graph projection.
+Write path: episode -> candidate extraction -> rule-based reconciliation -> accepted memory version -> embedding/search document -> graph projection.
 
 Read path: critical lookup -> structured, lexical, semantic, and graph retrieval -> reciprocal rank fusion -> usefulness/confidence/scope adjustments -> context packing -> retrieval trace.
 
@@ -35,7 +35,6 @@ Outcome learning: helpful/unused/harmful feedback adjusts usefulness scores only
 make bootstrap
 docker compose up -d postgres
 make migrate
-make seed
 make dev
 ```
 
@@ -45,11 +44,11 @@ Inspector: `http://localhost:3000`
 ## Python Example
 
 ```python
-from memrise import Memory
+from memrise import Memrise
 
-memory = Memory.from_env()
+memory = Memrise.from_env()
 await memory.capture(
-    namespace_id="demo",
+    namespace_id="local",
     agent_id="coding-agent",
     session_id="session-1",
     user_id="user-1",
@@ -61,15 +60,15 @@ await memory.capture(
 ## TypeScript Example
 
 ```ts
-import { MemoryClient } from "@memrise/sdk";
+import { MemriseClient } from "memrise-memory-sdk";
 
-const memory = new MemoryClient({
+const memory = new MemriseClient({
   baseUrl: process.env.MEMRISE_API_URL!,
   apiKey: process.env.MEMRISE_API_KEY!,
 });
 
 await memory.retrieve({
-  namespace_id: "demo",
+  namespaceId: "local",
   agent_id: "coding-agent",
   project_id: "atlas",
   query: "How should I install dependencies for Atlas?",
@@ -83,7 +82,7 @@ await memory.retrieve({
 `make bootstrap` installs dependencies and configures Git to use `.githooks/`.
 Run `make install-hooks` if hooks need to be reinstalled.
 
-Run `make format` to apply Ruff and Prettier formatting. Run `make check` for local static checks and unit/contract tests. Run `make test-integration` after PostgreSQL is up and migrated. Generated files are `docs/openapi.json` and `packages/sdk-typescript/src/generated/api-types.ts`; refresh them with `make generate-sdk`.
+Run `make format` to apply Ruff and Prettier formatting. Run `make check` for local static checks and unit/contract tests. Run `make test-integration` after PostgreSQL is up and migrated. Generated files are `contracts/openapi.json` and `packages/sdk-typescript/src/generated/api-types.ts`; refresh them with `make generate-sdk`.
 
 The pre-commit hook runs staged-file-aware Ruff, Prettier, ESLint/typecheck checks, plus a legacy-name scan. The commit-msg hook enforces Conventional Commit subjects and blocks old product/package names.
 
@@ -92,14 +91,13 @@ The pre-commit hook runs staged-file-aware Ruff, Prettier, ESLint/typecheck chec
 - `packages/engine`: Python core models, ports, integrations, services, Alembic migration.
 - `apps/api`: FastAPI HTTP translation layer.
 - `apps/worker`: PostgreSQL-backed worker.
-- `packages/sdk-typescript` (`@memrise/sdk`): fetch-based SDK generated from OpenAPI types.
+- `packages/sdk-typescript` (`memrise-memory-sdk`): fetch-based SDK generated from OpenAPI types.
 - `apps/web`: Next.js inspector.
-- `packages/evals`: local evaluation fixtures and pure metrics.
 
 ## Current Limitations
 
 - Consolidation handlers are skeletal beyond extraction jobs.
-- Semantic retrieval uses deterministic embeddings in local/test mode.
+- Capture, remember, and retrieval require a configured Qwen API key. The repository no longer ships an in-app model fallback.
 - Qwen prompts are initial versions and need eval-driven refinement.
 - Authorization is a simple API key, intentionally not production-grade multi-tenant auth.
 - The inspector is a minimal data inspection tool, not a polished product UI.
