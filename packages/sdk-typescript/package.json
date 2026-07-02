@@ -1,0 +1,33 @@
+{
+  "name": "@memrise/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate": "openapi-typescript ../../docs/openapi.json -o src/generated/api-types.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.0",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.9"
+  }
+}
