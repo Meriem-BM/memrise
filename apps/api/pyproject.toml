@@ -1,0 +1,21 @@
+[project]
+name = "memrise-api"
+version = "0.1.0"
+description = "FastAPI HTTP service for Memrise."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "memrise",
+    "fastapi>=0.138.2",
+    "uvicorn>=0.49.0",
+]
+
+[project.scripts]
+memrise-api = "memrise_api.main:run"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memrise_api"]
+
