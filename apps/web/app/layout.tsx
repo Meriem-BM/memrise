@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { SiteHeader } from "@/components/site-header";
-import { QueryProvider } from "@/lib/query-provider";
+import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
 const inter = Inter({

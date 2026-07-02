@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
 import { getMemriseClient } from "@/lib/api";
+import { formatDateTime } from "@/lib/utils/format";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
 type RetrievalTraceSummary = components["schemas"]["RetrievalTraceSummary"];
@@ -68,7 +69,7 @@ export function RetrievalsPanel() {
                     {trace.project_id ? <Badge>{trace.project_id}</Badge> : null}
                   </div>
                   <p className="mt-1.5 font-mono text-[11px] text-faint">
-                    {new Date(trace.created_at).toLocaleString()} · budget {trace.token_budget}
+                    {formatDateTime(trace.created_at)} · budget {trace.token_budget}
                   </p>
                 </button>
               );

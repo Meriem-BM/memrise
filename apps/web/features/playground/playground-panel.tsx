@@ -1,114 +1,19 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
 import { Loader2, Send, ThumbsUp } from "lucide-react";
-import { useState } from "react";
 
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  CaptureOutcomePanel,
-  type CaptureJob,
-  type CaptureOutcome,
-} from "@/features/playground/capture-outcome-panel";
-import { getMemriseClient } from "@/lib/api";
-import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
+import { CaptureOutcomePanel } from "@/features/playground/capture-outcome-panel";
+import { usePlaygroundCapture } from "@/hooks/usePlaygroundCapture";
+import { usePlaygroundRecall } from "@/hooks/usePlaygroundRecall";
 
 export function PlaygroundPanel() {
-  const client = getMemriseClient();
-  const [message, setMessage] = useState(
-    "Atlaused npm before, but we now use pnpm. Never edit its generated lockfile manually.",
-  );
-  const [query, setQuery] = useState("How should I install dependencies for Atlas?");
-  const [retrievalId, setRetrievalId] = useState<string | null>(null);
-  const [memoryVersionId, setMemoryVersionId] = useState<string | null>(null);
-
-  const capture = useMutation({
-    mutationFn: async (): Promise<CaptureOutcome> => {
-      const startedAt = Date.now();
-      const captureResult = await client.capture({
-        ...LOCAL_INSPECTOR_SCOPE,
-        events: [{ kind: "user_message", content: message, metadata: {} }],
-      });
-
-      if (captureResult.job_ids.length === 0) {
-        return {
-          episodeIds: captureResult.episode_ids,
-          jobs: [],
-          memories: [],
-          skippedExtraction: true,
-        };
-      }
-
-      const jobs: CaptureJob[] = [];
-      for (const jobId of captureResult.job_ids) {
-        const job = await client.waitForJob(jobId, { timeoutMs: 120_000, pollMs: 500 });
-        jobs.push({
-          id: job.id,
-          type: job.type,
-          status: job.status,
-          last_error: job.last_error,
-        });
-      }
-
-      const listed = await client.listMemories({
-        namespaceId: LOCAL_INSPECTOR_SCOPE.namespaceId,
-        agentId: LOCAL_INSPECTOR_SCOPE.agentId,
-        projectId: LOCAL_INSPECTOR_SCOPE.projectId,
-      });
-      const memories = listed
-        .filter((memory) => Date.parse(memory.created_at) >= startedAt - 5_000)
-        .map((memory) => ({
-          memory_id: memory.memory_id,
-          subject: memory.subject,
-          key: memory.key,
-          content: memory.content,
-          status: memory.status,
-          type: memory.type,
-        }));
-
-      return {
-        episodeIds: captureResult.episode_ids,
-        jobs,
-        memories,
-        skippedExtraction: false,
-      };
-    },
-  });
-
-  const retrieve = useMutation({
-    mutationFn: () =>
-      client.retrieve({
-        ...LOCAL_INSPECTOR_SCOPE,
-        query,
-        taskType: "dependency_install",
-        tokenBudget: 800,
-        limit: 10,
-        graphHops: 1,
-      }),
-    onSuccess: (data) => {
-      setRetrievalId(data.retrieval_id);
-      setMemoryVersionId(
-        data.memories[0]?.memory_version_id ?? data.critical[0]?.memory_version_id ?? null,
-      );
-    },
-  });
-
-  const feedback = useMutation({
-    mutationFn: () => {
-      if (!retrievalId || !memoryVersionId) {
-        throw new Error("retrieve memory before feedback");
-      }
-      return client.feedback(retrievalId, {
-        outcome: "helpful",
-        source: "developer",
-        memoryVersionId: memoryVersionId,
-      });
-    },
-  });
+  const { message, setMessage, capture } = usePlaygroundCapture();
+  const { query, setQuery, retrievalId, retrieve, feedback } = usePlaygroundRecall();
 
   return (
     <div>

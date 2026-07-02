@@ -12,7 +12,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { getMemriseClient } from "@/lib/api";
 import { formatCount } from "@/lib/utils/format";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
-import { useCountUp } from "@/hooks/use-count-up";
+import { useCountUp } from "@/hooks/useCountUp";
 
 type MemorySummary = components["schemas"]["MemorySummary"];
 

@@ -2,31 +2,10 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import Link from "next/link";
 
 import { Badge, statusVariant } from "@/components/ui/badge";
+import { formatSnakeCase } from "@/lib/utils/format";
+import type { CaptureResult } from "@/types/memory";
 
-export type CaptureMemory = {
-  memory_id: string;
-  subject: string;
-  key: string;
-  content: string;
-  status: string;
-  type: string;
-};
-
-export type CaptureJob = {
-  id: string;
-  type: string;
-  status: string;
-  last_error: string | null;
-};
-
-export type CaptureOutcome = {
-  episodeIds: string[];
-  jobs: CaptureJob[];
-  memories: CaptureMemory[];
-  skippedExtraction: boolean;
-};
-
-export function CaptureOutcomePanel({ outcome }: { outcome: CaptureOutcome }) {
+export function CaptureOutcomePanel({ outcome }: { outcome: CaptureResult }) {
   const extractionFailed = outcome.jobs.some((job) => job.status === "failed");
   const extractionDone = outcome.jobs.every(
     (job) => job.status === "completed" || job.status === "failed",
@@ -53,7 +32,7 @@ export function CaptureOutcomePanel({ outcome }: { outcome: CaptureOutcome }) {
               key={job.id}
               done={job.status === "completed"}
               failed={job.status === "failed"}
-              label={`${formatJobType(job.type)} · ${job.status}`}
+              label={`${formatSnakeCase(job.type)} · ${job.status}`}
               detail={job.last_error ?? job.id}
             />
           ))}
@@ -114,8 +93,4 @@ function OutcomeStep({
       </div>
     </div>
   );
-}
-
-function formatJobType(type: string): string {
-  return type.replaceAll("_", " ");
 }
