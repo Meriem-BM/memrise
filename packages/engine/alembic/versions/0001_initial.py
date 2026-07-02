@@ -36,6 +36,7 @@ def upgrade() -> None:
         $$;
         """
     )
+    op.execute('SET search_path = "$user", public')
 
     op.create_table(
         "episodes",

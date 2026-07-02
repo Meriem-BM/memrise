@@ -38,6 +38,30 @@ async def test_age_extension_is_installed() -> None:
     await engine.dispose()
 
 
+async def test_application_tables_live_in_public_schema() -> None:
+    engine = create_async_engine(database_url())
+    async with engine.connect() as connection:
+        misplaced = (
+            (
+                await connection.execute(
+                    text(
+                        "select tablename from pg_tables "
+                        "where schemaname = 'ag_catalog' "
+                        "and tablename in ('episodes', 'memories', 'memory_versions', 'jobs')"
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert misplaced == []
+        episodes_schema = await connection.scalar(
+            text("select table_schema from information_schema.tables where table_name = 'episodes'")
+        )
+        assert episodes_schema == "public"
+    await engine.dispose()
+
+
 async def test_age_graph_repository_accepts_injected_uuid_generator() -> None:
     session_factory = make_session_factory(database_url())
     id_generator = FixedIdGenerator(prefix="injected")
