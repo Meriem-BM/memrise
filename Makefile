@@ -1,4 +1,5 @@
 UV_ENV=UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python
+COMPOSE=docker compose -f infra/compose.yaml
 
 .PHONY: bootstrap install-hooks dev stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset migrate migration export-openapi generate-sdk
 
@@ -11,13 +12,13 @@ install-hooks:
 	git config core.hooksPath .githooks
 
 dev:
-	docker compose up --build
+	$(COMPOSE) up --build
 
 stop:
-	docker compose down
+	$(COMPOSE) down
 
 logs:
-	docker compose logs -f
+	$(COMPOSE) logs -f
 
 format:
 	$(UV_ENV) uv run ruff format .
@@ -64,8 +65,8 @@ migrate:
 	$(UV_ENV) uv run alembic -c packages/engine/alembic.ini upgrade head
 
 db-reset:
-	docker compose down -v
-	docker compose up -d postgres
+	$(COMPOSE) down -v
+	$(COMPOSE) up -d postgres
 	$(UV_ENV) uv run alembic -c packages/engine/alembic.ini upgrade head
 
 migration:

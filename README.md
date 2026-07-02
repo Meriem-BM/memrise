@@ -33,7 +33,7 @@ Outcome learning: helpful/unused/harmful feedback adjusts usefulness scores only
 
 ```bash
 make bootstrap
-docker compose up -d postgres
+docker compose -f infra/compose.yaml up -d postgres
 make migrate
 make dev
 ```
@@ -88,6 +88,7 @@ The pre-commit hook runs staged-file-aware Ruff, Prettier, ESLint/typecheck chec
 
 ## Repository Map
 
+- `infra`: Docker Compose stack, Dockerfiles, and PostgreSQL extension bootstrap.
 - `packages/engine`: Python core models, ports, integrations, services, Alembic migration.
 - `apps/api`: FastAPI HTTP translation layer.
 - `apps/worker`: PostgreSQL-backed worker.

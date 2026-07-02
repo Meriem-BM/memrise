@@ -28,5 +28,5 @@ RUN git clone --branch "${AGE_REF}" --depth 1 https://github.com/apache/age.git 
     && make PG_CONFIG=/usr/lib/postgresql/18/bin/pg_config install \
     && rm -rf /tmp/age
 
-COPY scripts/pg-extensions.sh /docker-entrypoint-initdb.d/10-pg-extensions.sh
+COPY infra/pg-extensions.sh /docker-entrypoint-initdb.d/10-pg-extensions.sh
 RUN chmod +x /docker-entrypoint-initdb.d/10-pg-extensions.sh

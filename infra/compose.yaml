@@ -1,8 +1,8 @@
 services:
   postgres:
     build:
-      context: .
-      dockerfile: Dockerfile.postgres
+      context: ..
+      dockerfile: infra/Dockerfile.postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-memrise}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memrise}
@@ -19,10 +19,10 @@ services:
 
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile.python
+      context: ..
+      dockerfile: infra/Dockerfile.python
       target: api
-    env_file: .env
+    env_file: ../.env
     environment:
       DATABASE_URL: postgresql+psycopg://memrise:memrise@postgres:5432/memrise
     depends_on:
@@ -32,10 +32,10 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.python
+      context: ..
+      dockerfile: infra/Dockerfile.python
       target: api
-    env_file: .env
+    env_file: ../.env
     environment:
       DATABASE_URL: postgresql+psycopg://memrise:memrise@postgres:5432/memrise
     depends_on:
@@ -55,10 +55,10 @@ services:
 
   worker:
     build:
-      context: .
-      dockerfile: Dockerfile.python
+      context: ..
+      dockerfile: infra/Dockerfile.python
       target: worker
-    env_file: .env
+    env_file: ../.env
     environment:
       DATABASE_URL: postgresql+psycopg://memrise:memrise@postgres:5432/memrise
     depends_on:
@@ -67,8 +67,8 @@ services:
 
   web:
     build:
-      context: .
-      dockerfile: Dockerfile.web
+      context: ..
+      dockerfile: infra/Dockerfile.web
     environment:
       NEXT_PUBLIC_MEMRISE_API_URL: http://localhost:8000
       NEXT_PUBLIC_MEMRISE_API_KEY: local-dev-key
