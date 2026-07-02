@@ -1,16 +1,29 @@
 import type { HTMLAttributes } from "react";
 
-import { cn } from "@/lib/cn";
+import { cn } from "@/lib/utils/cn";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+type CardProps = HTMLAttributes<HTMLDivElement> & {
+  /** enable hover lift */
+  interactive?: boolean;
+};
+
+export function Card({ className, interactive, children, ...props }: CardProps) {
   return (
     <section
-      className={cn("rounded-md border border-[var(--border)] bg-white p-4 shadow-sm", className)}
+      className={cn(
+        "rounded-2xl border border-white/10 bg-surface p-6",
+        interactive && "hover-lift",
+        className,
+      )}
       {...props}
-    />
+    >
+      {children}
+    </section>
   );
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h2 className={cn("text-base font-semibold", className)} {...props} />;
+  return (
+    <h2 className={cn("text-sm font-semibold tracking-tight text-white", className)} {...props} />
+  );
 }

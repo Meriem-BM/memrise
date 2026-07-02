@@ -2,10 +2,11 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { Background, Controls, ReactFlow } from "@xyflow/react";
+import { Background, BackgroundVariant, Controls, ReactFlow } from "@xyflow/react";
 import { useQuery } from "@tanstack/react-query";
 
-import { Card, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { Card } from "@/components/ui/card";
 import { getMemriseClient } from "@/lib/api";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 
@@ -25,7 +26,7 @@ export function GraphPanel() {
   });
   const nodes = (graph.data?.nodes ?? []).map((node, index) => ({
     id: node.id,
-    position: { x: index * 180, y: index % 2 === 0 ? 40 : 160 },
+    position: { x: index * 200, y: index % 2 === 0 ? 40 : 200 },
     data: { label: node.canonical_name },
   }));
   const edges = (graph.data?.edges ?? []).map((edge) => ({
@@ -33,16 +34,30 @@ export function GraphPanel() {
     source: edge.source_node_id,
     target: edge.target_node_id,
     label: edge.relation,
+    animated: true,
   }));
+
   return (
-    <Card className="h-[640px]">
-      <CardTitle>Graph Neighborhood</CardTitle>
-      <div className="mt-4 h-[560px] overflow-hidden rounded border border-slate-200">
-        <ReactFlow nodes={nodes} edges={edges} fitView>
-          <Background />
-          <Controls />
-        </ReactFlow>
-      </div>
-    </Card>
+    <div>
+      <PageHeader
+        eyebrow="Knowledge Graph"
+        title="Graph Neighborhood"
+        description="How memories connect. Explore the entities and relations surrounding the current focus."
+      />
+
+      <Card className="h-[640px] p-3">
+        <div className="h-full overflow-hidden rounded-xl border border-border">
+          <ReactFlow nodes={nodes} edges={edges} fitView proOptions={{ hideAttribution: true }}>
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={22}
+              size={1}
+              color="rgba(255,255,255,0.08)"
+            />
+            <Controls />
+          </ReactFlow>
+        </div>
+      </Card>
+    </div>
   );
 }

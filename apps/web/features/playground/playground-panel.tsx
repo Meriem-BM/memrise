@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Loader2, Send, ThumbsUp } from "lucide-react";
 import { useState } from "react";
 
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -110,58 +111,70 @@ export function PlaygroundPanel() {
   });
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-      <Card>
-        <CardTitle>Capture</CardTitle>
-        <Textarea
-          className="mt-3"
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-        />
-        <Button
-          className="mt-3 gap-2"
-          onClick={() => capture.mutate()}
-          disabled={capture.isPending}
-        >
-          {capture.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-          {capture.isPending ? "Extracting…" : "Capture"}
-        </Button>
-        {capture.isError ? (
-          <p className="mt-3 text-sm text-red-600">{capture.error.message}</p>
-        ) : null}
-        {capture.data ? <CaptureOutcomePanel outcome={capture.data} /> : null}
-      </Card>
-      <Card>
-        <CardTitle>Retrieve</CardTitle>
-        <Input className="mt-3" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <div className="mt-3 flex gap-2">
-          <Button onClick={() => retrieve.mutate()} disabled={retrieve.isPending}>
-            Retrieve
+    <div>
+      <PageHeader
+        eyebrow="Live Sandbox"
+        title="Playground"
+        description="Feed Memrise a message, watch it distill knowledge, then retrieve it back — the full capture → extract → recall loop, live."
+      />
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card className="animate-rise">
+          <CardTitle>Capture</CardTitle>
+          <Textarea
+            className="mt-3"
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+          />
+          <Button className="mt-3" onClick={() => capture.mutate()} disabled={capture.isPending}>
+            {capture.isPending ? (
+              <Loader2 className="animate-spin" size={16} />
+            ) : (
+              <Send size={16} />
+            )}
+            {capture.isPending ? "Extracting…" : "Capture"}
           </Button>
-          <Button
-            className="gap-2 bg-slate-800"
-            onClick={() => feedback.mutate()}
-            disabled={!retrievalId}
-          >
-            <ThumbsUp size={16} />
-            Helpful
-          </Button>
-        </div>
-        {retrieve.isError ? (
-          <p className="mt-3 text-sm text-red-600">{retrieve.error.message}</p>
-        ) : null}
-        {retrieve.data ? (
-          <pre className="mt-3 max-h-96 overflow-auto text-xs">
-            {JSON.stringify(retrieve.data, null, 2)}
-          </pre>
-        ) : null}
-        {feedback.isError ? (
-          <p className="mt-3 text-sm text-red-600">{feedback.error.message}</p>
-        ) : null}
-        {feedback.data ? (
-          <pre className="mt-3 overflow-auto text-xs">{JSON.stringify(feedback.data, null, 2)}</pre>
-        ) : null}
-      </Card>
+          {capture.isError ? (
+            <p className="mt-3 text-sm text-danger">{capture.error.message}</p>
+          ) : null}
+          {capture.data ? <CaptureOutcomePanel outcome={capture.data} /> : null}
+        </Card>
+        <Card className="animate-rise" style={{ animationDelay: "80ms" }}>
+          <CardTitle>Retrieve</CardTitle>
+          <Input
+            className="mt-3"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <div className="mt-3 flex gap-2">
+            <Button onClick={() => retrieve.mutate()} disabled={retrieve.isPending}>
+              {retrieve.isPending ? <Loader2 className="animate-spin" size={16} /> : null}
+              Retrieve
+            </Button>
+            <Button variant="ghost" onClick={() => feedback.mutate()} disabled={!retrievalId}>
+              <ThumbsUp size={16} />
+              Helpful
+            </Button>
+          </div>
+          {retrieve.isError ? (
+            <p className="mt-3 text-sm text-danger">{retrieve.error.message}</p>
+          ) : null}
+          {retrieve.data ? <JsonBlock value={retrieve.data} className="max-h-96" /> : null}
+          {feedback.isError ? (
+            <p className="mt-3 text-sm text-danger">{feedback.error.message}</p>
+          ) : null}
+          {feedback.data ? <JsonBlock value={feedback.data} /> : null}
+        </Card>
+      </div>
     </div>
+  );
+}
+
+function JsonBlock({ value, className = "" }: { value: unknown; className?: string }) {
+  return (
+    <pre
+      className={`mt-3 overflow-auto rounded-lg border border-border bg-black p-3 font-mono text-xs leading-relaxed text-muted ${className}`}
+    >
+      {JSON.stringify(value, null, 2)}
+    </pre>
   );
 }

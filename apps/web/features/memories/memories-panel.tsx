@@ -1,11 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import type { components } from "memrise-memory-sdk";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { Badge, statusVariant } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getMemriseClient } from "@/lib/api";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
@@ -14,6 +17,7 @@ type MemorySummary = components["schemas"]["MemorySummary"];
 
 export function MemoriesPanel() {
   const client = getMemriseClient();
+  const [filter, setFilter] = useState("");
   const memories = useQuery({
     queryKey: ["memories", "list"],
     queryFn: () =>
@@ -24,32 +28,85 @@ export function MemoriesPanel() {
       }),
     retry: false,
   });
+
+  const rows = useMemo(() => memories.data ?? [], [memories.data]);
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((m: MemorySummary) =>
+      [m.subject, m.content, m.type, m.status].some((v) =>
+        String(v ?? "")
+          .toLowerCase()
+          .includes(q),
+      ),
+    );
+  }, [rows, filter]);
+
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitle>Memories</CardTitle>
-        <Input className="max-w-xs" placeholder="Filter" />
-      </div>
-      <div className="mt-4 divide-y divide-slate-200">
-        {(memories.data ?? []).map((memory: MemorySummary) => (
+    <div>
+      <PageHeader
+        eyebrow="Canonical Store"
+        title="Memories"
+        description="Everything Memrise has distilled into durable, canonical knowledge."
+        actions={
+          <div className="relative">
+            <Search
+              size={15}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint"
+            />
+            <Input
+              className="w-64 pl-9"
+              placeholder="Filter memories…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+        }
+      />
+
+      <div className="grid gap-3">
+        {filtered.map((memory: MemorySummary, i: number) => (
           <Link
             key={memory.memory_id}
             href={`/memories/${memory.memory_id}`}
-            className="block py-3"
+            className="animate-rise block"
+            style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <strong>{memory.subject}</strong>
-              <Badge>{memory.type}</Badge>
-              <Badge>{memory.status}</Badge>
-              <Badge>{memory.criticality}</Badge>
-            </div>
-            <p className="mt-1 text-sm text-slate-600">{memory.content}</p>
+            <Card interactive className="p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <strong className="text-[15px] font-medium tracking-tight">{memory.subject}</strong>
+                <Badge>{memory.type}</Badge>
+                <Badge variant={statusVariant(memory.status)}>{memory.status}</Badge>
+                <Badge variant={statusVariant(memory.criticality)}>{memory.criticality}</Badge>
+              </div>
+              <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">
+                {memory.content}
+              </p>
+            </Card>
           </Link>
         ))}
-        {memories.data?.length === 0 ? (
-          <p className="py-8 text-sm text-slate-500">No memories yet.</p>
+
+        {rows.length > 0 && filtered.length === 0 ? (
+          <Card className="py-10 text-center text-sm text-muted">
+            No memories match “{filter}”.
+          </Card>
+        ) : null}
+
+        {memories.isSuccess && rows.length === 0 ? (
+          <Card className="py-14 text-center">
+            <p className="text-sm text-muted">No memories yet.</p>
+            <p className="mt-1 text-xs text-faint">
+              Capture something in the playground to seed the store.
+            </p>
+          </Card>
+        ) : null}
+
+        {memories.isError ? (
+          <Card className="border-danger/30 py-6 text-center text-sm text-danger">
+            {memories.error.message}
+          </Card>
         ) : null}
       </div>
-    </Card>
+    </div>
   );
 }

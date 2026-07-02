@@ -1,44 +1,37 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { SiteHeader } from "@/components/site-header";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Memrise inspector",
-  description: "Inspector for the Memrise framework",
-};
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-inter",
+});
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains-mono",
+});
 
-const nav = [
-  ["/", "Status"],
-  ["/playground", "Playground"],
-  ["/memories", "Memories"],
-  ["/retrievals", "Retrievals"],
-  ["/graph", "Graph"],
-];
+export const metadata: Metadata = {
+  title: "Memrise Inspector",
+  description: "Inspect the living memory of the Memrise framework",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
         <QueryProvider>
-          <div className="min-h-screen">
-            <header className="border-b border-[var(--border)] bg-white">
-              <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                <Link href="/" className="text-lg font-semibold">
-                  Memrise
-                </Link>
-                <nav className="flex flex-wrap items-center gap-1 text-sm text-slate-600">
-                  {nav.map(([href, label]) => (
-                    <Link key={href} href={href} className="rounded px-3 py-2 hover:bg-slate-100">
-                      {label}
-                    </Link>
-                  ))}
-                </nav>
-              </div>
-            </header>
-            <main className="mx-auto max-w-7xl px-6 py-6">{children}</main>
+          <div className="relative flex min-h-screen flex-col selection:bg-white/30">
+            <SiteHeader />
+            <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">{children}</main>
+            <footer className="mx-auto w-full max-w-7xl px-6 py-8 text-xs text-faint">
+              <span className="font-mono">memrise</span> · inspector for a living memory system
+            </footer>
           </div>
         </QueryProvider>
       </body>
