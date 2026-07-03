@@ -2,6 +2,7 @@
 
 import { Loader2, Send, ThumbsUp } from "lucide-react";
 
+import { ClientOnly } from "@/components/client-only";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -31,11 +32,13 @@ export function PlaygroundPanel() {
             onChange={(event) => setMessage(event.target.value)}
           />
           <Button className="mt-3" onClick={() => capture.mutate()} disabled={capture.isPending}>
-            {capture.isPending ? (
-              <Loader2 className="animate-spin" size={16} />
-            ) : (
-              <Send size={16} />
-            )}
+            <ClientOnly fallback={<span className="inline-block size-4 shrink-0" aria-hidden />}>
+              {capture.isPending ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <Send size={16} />
+              )}
+            </ClientOnly>
             {capture.isPending ? "Extracting…" : "Capture"}
           </Button>
           {capture.isError ? (
@@ -52,11 +55,19 @@ export function PlaygroundPanel() {
           />
           <div className="mt-3 flex gap-2">
             <Button onClick={() => retrieve.mutate()} disabled={retrieve.isPending}>
-              {retrieve.isPending ? <Loader2 className="animate-spin" size={16} /> : null}
+              {retrieve.isPending ? (
+                <ClientOnly
+                  fallback={<span className="inline-block size-4 shrink-0" aria-hidden />}
+                >
+                  <Loader2 className="animate-spin" size={16} />
+                </ClientOnly>
+              ) : null}
               Retrieve
             </Button>
             <Button variant="ghost" onClick={() => feedback.mutate()} disabled={!retrievalId}>
-              <ThumbsUp size={16} />
+              <ClientOnly fallback={<span className="inline-block size-4 shrink-0" aria-hidden />}>
+                <ThumbsUp size={16} />
+              </ClientOnly>
               Helpful
             </Button>
           </div>
