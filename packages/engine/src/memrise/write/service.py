@@ -8,6 +8,8 @@ from memrise.core.models import (
     Episode,
     MemoryCandidateStage,
 )
+from memrise.graph.schema import InMemoryGraphSchemaRegistry, route_schema_packs
+from memrise.integrations.qwen.providers import schema_pack_context
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import (
     CompletionProvider,
@@ -17,6 +19,7 @@ from memrise.ports.providers import (
     ExtractionResult,
 )
 from memrise.ports.repositories import JobQueue, MemoryStore
+from memrise.ports.schema_registry import GraphSchemaRegistry
 from memrise.runtime.scope import scope_from_namespace_agent
 from memrise.write.extraction_validation import (
     CandidatePromotionDecision,
@@ -42,6 +45,7 @@ class WriteService:
         embedding_provider: EmbeddingProvider,
         importance_gate: ImportanceGate,
         id_generator: IdGenerator,
+        schema_registry: GraphSchemaRegistry | None = None,
     ) -> None:
         self._store = store
         self._jobs = jobs
@@ -50,6 +54,7 @@ class WriteService:
         self._importance_gate = importance_gate
         self._extraction_validation = ExtractionValidationPolicy()
         self._ids = id_generator
+        self._schema_registry = schema_registry or InMemoryGraphSchemaRegistry()
 
     async def capture_episode(self, episode: Episode) -> tuple[Episode, str | None]:
         outcome = await self._store.save_episode(episode)
@@ -78,12 +83,7 @@ class WriteService:
         try:
             extraction = await self._completion_provider.extract_memories(
                 text=episode.content,
-                context={
-                    "namespace_id": episode.namespace_id,
-                    "agent_id": episode.agent_id,
-                    "session_id": episode.session_id,
-                    "project_id": episode.project_id,
-                },
+                context=await self._extraction_context(episode),
             )
         except Exception:
             raise
@@ -237,6 +237,21 @@ class WriteService:
             created_memory_version_ids=created,
             graph_projection_job_ids=graph_jobs,
         )
+
+    async def _extraction_context(self, episode: Episode) -> dict[str, object]:
+        routes = await route_schema_packs(
+            self._schema_registry,
+            namespace_id=episode.namespace_id,
+            project_id=episode.project_id,
+            text=episode.content,
+        )
+        return {
+            "namespace_id": episode.namespace_id,
+            "agent_id": episode.agent_id,
+            "session_id": episode.session_id,
+            "project_id": episode.project_id,
+            "active_schema_packs": schema_pack_context([route.pack for route in routes]),
+        }
 
     async def _finalize_candidate_stage(
         self,

@@ -1,9 +1,9 @@
-from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import JobType
 from memrise.core.errors import UnimplementedJobError
 from memrise.core.models import BackgroundJob
 from memrise.core.time import utc_now
+from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.ports.providers import ExtractedGraphRelation
 from memrise.ports.repositories import JobQueue, MemoryStore
 from memrise.schemas.requests import ConsolidateRequest
@@ -18,11 +18,13 @@ class JobProcessor:
         write: WriteService,
         graph_projection: GraphProjectionService,
         session_consolidation: SessionConsolidationService,
+        graph_rebuild: GraphRebuildService | None = None,
     ) -> None:
         self._store = store
         self._write = write
         self._graph_projection = graph_projection
         self._session_consolidation = session_consolidation
+        self._graph_rebuild = graph_rebuild
 
     async def process(self, job: BackgroundJob) -> None:
         if job.type == JobType.EXTRACT_EPISODE:
@@ -39,7 +41,23 @@ class JobProcessor:
                 ExtractedGraphRelation.model_validate(raw)
                 for raw in job.payload.get("relations", [])
             ]
-            await self._graph_projection.project_memory(memory=memory, relations=relations)
+            extractor_version = job.payload.get("extractor_version")
+            if isinstance(extractor_version, str):
+                extractor = extractor_version
+            else:
+                extractor = None
+            await self._graph_projection.project_memory(
+                memory=memory,
+                relations=relations,
+                extractor_version=extractor,
+            )
+            return
+        if job.type == JobType.REBUILD_GRAPH:
+            if self._graph_rebuild is None:
+                msg = "graph rebuild service is not configured"
+                raise RuntimeError(msg)
+            namespace_id = str(job.payload["namespace_id"])
+            await self._graph_rebuild.rebuild_namespace(namespace_id)
             return
         if job.type == JobType.CONSOLIDATE_SESSION:
             request = ConsolidateRequest.model_validate(job.payload)

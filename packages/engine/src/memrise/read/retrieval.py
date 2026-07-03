@@ -5,8 +5,9 @@ from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
 from memrise.core.models import CanonicalMemory, RetrievalItem, RetrievalTrace, Scope
 from memrise.core.time import utc_now
-from memrise.graph.query_planner import should_use_graph_retrieval
+from memrise.graph.retrieval import GraphTraversalService, should_use_graph_retrieval
 from memrise.ports.graph_repository import GraphRepository
+from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import EmbeddingProvider, TokenCounter
 from memrise.ports.repositories import MemoryStore
@@ -64,12 +65,21 @@ class RetrievalService:
         *,
         store: MemoryStore,
         graph_repository: GraphRepository,
+        graph_claim_store: GraphClaimStore | None = None,
         embedding_provider: EmbeddingProvider,
         token_counter: TokenCounter,
         ids: IdGenerator,
     ) -> None:
         self._store = store
         self._graph_repository = graph_repository
+        self._graph_traversal = (
+            GraphTraversalService(
+                graph_repository=graph_repository,
+                claim_store=graph_claim_store,
+            )
+            if graph_claim_store is not None
+            else None
+        )
         self._embedding_provider = embedding_provider
         self._token_counter = token_counter
         self._ids = ids
@@ -127,13 +137,21 @@ class RetrievalService:
         graph: list[RetrievalCandidate] = []
         if should_use_graph_retrieval(query) and await self._graph_repository.is_available():
             depth = clamp_graph_depth(graph_hops)
-            paths = await self._graph_repository.search(
-                GraphSearchRequest(
+            if self._graph_traversal is not None:
+                paths = await self._graph_traversal.traverse_for_query(
                     namespace_id=scope.namespace_id,
                     query=query,
                     depth=depth,
+                    project_id=scope.project_id,
                 )
-            )
+            else:
+                paths = await self._graph_repository.search(
+                    GraphSearchRequest(
+                        namespace_id=scope.namespace_id,
+                        query=query,
+                        depth=depth,
+                    )
+                )
             seen_versions: set[str] = set()
             for index, path in enumerate(paths, start=1):
                 for memory_version_id in path.source_memory_version_ids:

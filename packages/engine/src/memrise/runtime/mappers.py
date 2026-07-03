@@ -1,11 +1,16 @@
 from dataclasses import asdict
 
+from memrise.core.graph import GraphPath
 from memrise.core.models import BackgroundJob, CanonicalMemory, RetrievalItem
 from memrise.ports.providers import TokenCounter
 from memrise.ports.repositories import MemoryStore
 from memrise.schemas.mappers import memory_to_summary
 from memrise.schemas.responses import (
+    GraphEdgeSummary,
+    GraphNeighborhoodResponse,
+    GraphNodeSummary,
     JobSummary,
+    MemorySummary,
     RetrievalItemSummary,
     RetrievedMemory,
 )
@@ -25,6 +30,10 @@ def to_job_summary(job: BackgroundJob) -> JobSummary:
         created_at=job.created_at,
         updated_at=job.updated_at,
     )
+
+
+def to_memory_summary(memory: CanonicalMemory) -> MemorySummary:
+    return memory_to_summary(memory)
 
 
 def retrieval_item_to_summary(item: RetrievalItem) -> RetrievalItemSummary:
@@ -72,9 +81,58 @@ async def to_retrieved_memory(
     )
 
 
+def build_graph_neighborhood_response(
+    paths: list[GraphPath],
+    *,
+    project_id: str | None,
+) -> GraphNeighborhoodResponse:
+    nodes: list[GraphNodeSummary] = []
+    edges: list[GraphEdgeSummary] = []
+    seen_nodes: set[str] = set()
+    seen_edges: set[str] = set()
+    for path in paths:
+        for node in path.nodes:
+            if node.uid in seen_nodes:
+                continue
+            seen_nodes.add(node.uid)
+            nodes.append(
+                GraphNodeSummary(
+                    id=node.uid,
+                    namespace_id=node.namespace_id,
+                    node_type=node.node_type,
+                    canonical_name=node.canonical_name,
+                    normalized_name=node.normalized_name,
+                    aliases=list(node.aliases),
+                    metadata={},
+                    project_id=project_id,
+                )
+            )
+        for edge in path.edges:
+            if edge.uid in seen_edges:
+                continue
+            seen_edges.add(edge.uid)
+            edges.append(
+                GraphEdgeSummary(
+                    id=edge.uid,
+                    source_node_id=edge.source_uid,
+                    target_node_id=edge.target_uid,
+                    relation=edge.relation,
+                    source_memory_version_id=edge.source_memory_version_id,
+                    status=edge.status,
+                    confidence=edge.confidence,
+                    usefulness_score=edge.usefulness_score,
+                    valid_from=edge.valid_from,
+                    valid_until=edge.valid_until,
+                )
+            )
+    return GraphNeighborhoodResponse(nodes=nodes, edges=edges)
+
+
 __all__ = [
+    "build_graph_neighborhood_response",
     "memory_to_summary",
     "retrieval_item_to_summary",
     "to_job_summary",
+    "to_memory_summary",
     "to_retrieved_memory",
 ]

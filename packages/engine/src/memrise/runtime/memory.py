@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from memrise.consolidation.graph_projection import GraphProjectionService
-from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import (
     Criticality,
     EpisodeKind,
@@ -15,8 +13,10 @@ from memrise.core.enums import (
     MemoryType,
 )
 from memrise.core.graph import clamp_graph_depth
-from memrise.core.models import BackgroundJob, Episode, Feedback
+from memrise.core.models import BackgroundJob, CanonicalMemory, Episode, Feedback
+from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.ports.graph_repository import GraphRepository
+from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.providers import (
     CompletionProvider,
     EmbeddingProvider,
@@ -25,15 +25,13 @@ from memrise.ports.providers import (
     TokenCounter,
 )
 from memrise.ports.repositories import FeedbackPolicy, JobQueue, MemoryStore
-from memrise.read.explanation import ExplanationService
-from memrise.read.retrieval import RetrievalService
-from memrise.runtime.clock import SystemClock
-from memrise.runtime.graph_responses import build_graph_neighborhood_response
-from memrise.runtime.ids import UuidGenerator
-from memrise.runtime.job_processor import JobProcessor
+from memrise.ports.schema_registry import GraphSchemaRegistry
+from memrise.runtime.factory import build_runtime_services
 from memrise.runtime.mappers import (
+    build_graph_neighborhood_response,
     retrieval_item_to_summary,
     to_job_summary,
+    to_memory_summary,
     to_retrieved_memory,
 )
 from memrise.runtime.scope import scope_from_namespace_agent
@@ -60,8 +58,6 @@ from memrise.schemas.responses import (
     RetrievalTraceSummary,
     RetrieveResponse,
 )
-from memrise.write.importance import ImportanceGate
-from memrise.write.service import WriteService
 
 
 class Memrise:
@@ -72,6 +68,9 @@ class Memrise:
         jobs: JobQueue,
         graph_repository: GraphRepository,
         graph_projection: GraphProjectionService,
+        graph_claim_store: GraphClaimStore | None = None,
+        graph_rebuild: GraphRebuildService | None = None,
+        schema_registry: GraphSchemaRegistry | None = None,
         completion_provider: CompletionProvider,
         embedding_provider: EmbeddingProvider,
         token_counter: TokenCounter,
@@ -80,38 +79,27 @@ class Memrise:
         self._store = store
         self._jobs = jobs
         self._graph_repository = graph_repository
-        self._graph_projection = graph_projection
-        self._completion_provider = completion_provider
-        self._embedding_provider = embedding_provider
-        self._token_counter = token_counter
         self._feedback_policy = feedback_policy
-        self._clock = SystemClock()
-        self._ids = UuidGenerator()
-        self._write = WriteService(
+        self._token_counter = token_counter
+        self._embedding_provider = embedding_provider
+        services = build_runtime_services(
             store=store,
             jobs=jobs,
+            graph_repository=graph_repository,
+            graph_projection=graph_projection,
+            graph_claim_store=graph_claim_store,
+            graph_rebuild=graph_rebuild,
+            schema_registry=schema_registry,
             completion_provider=completion_provider,
             embedding_provider=embedding_provider,
-            importance_gate=ImportanceGate(),
-            id_generator=self._ids,
-        )
-        self._retrieval = RetrievalService(
-            store=store,
-            graph_repository=graph_repository,
-            embedding_provider=embedding_provider,
             token_counter=token_counter,
-            ids=self._ids,
         )
-        self._explain = ExplanationService(store, graph_repository=graph_repository)
-        self._job_processor = JobProcessor(
-            store=store,
-            write=self._write,
-            graph_projection=graph_projection,
-            session_consolidation=SessionConsolidationService(
-                store=store,
-                write=self._write,
-            ),
-        )
+        self._write = services.write
+        self._retrieval = services.retrieval
+        self._explain = services.explain
+        self._job_processor = services.job_processor
+        self._clock = services.clock
+        self._ids = services.ids
 
     @classmethod
     def from_env(cls) -> Memrise:
@@ -334,24 +322,8 @@ class Memrise:
             query=request.query,
             token_budget=request.token_budget,
             used_tokens=used_tokens,
-            critical=[
-                await to_retrieved_memory(
-                    memory=memory,
-                    store=self._store,
-                    token_counter=self._token_counter,
-                    selected=True,
-                )
-                for memory in critical
-            ],
-            memories=[
-                await to_retrieved_memory(
-                    memory=memory,
-                    store=self._store,
-                    token_counter=self._token_counter,
-                    selected=True,
-                )
-                for memory in memories
-            ],
+            critical=await self._retrieved_memories(critical),
+            memories=await self._retrieved_memories(memories),
             context=context,
         )
 
@@ -492,11 +464,10 @@ class Memrise:
         hops: int = 1,
     ) -> GraphNeighborhoodResponse:
         del agent_id, user_id
-        depth = clamp_graph_depth(hops)
         paths = await self._graph_repository.get_neighborhood(
             node_uid=query or "",
             namespace_id=namespace_id,
-            depth=depth,
+            depth=clamp_graph_depth(hops),
         )
         return build_graph_neighborhood_response(paths, project_id=project_id)
 
@@ -534,19 +505,20 @@ class Memrise:
     async def process_job(self, job: BackgroundJob) -> None:
         await self._job_processor.process(job)
 
+    async def _retrieved_memories(self, memories: list[CanonicalMemory]) -> list:
+        return [
+            await to_retrieved_memory(
+                memory=memory,
+                store=self._store,
+                token_counter=self._token_counter,
+                selected=True,
+            )
+            for memory in memories
+        ]
+
 
 class Memory(Memrise):
     """Compatibility alias for the public Memrise SDK class."""
-
-
-def to_memory_summary(memory: object) -> MemorySummary:
-    from memrise.core.models import CanonicalMemory
-
-    canonical = memory if isinstance(memory, CanonicalMemory) else None
-    if canonical is None:
-        msg = "expected canonical memory"
-        raise TypeError(msg)
-    return memory_to_summary(canonical)
 
 
 __all__ = ["Memory", "Memrise", "to_job_summary", "to_memory_summary"]
