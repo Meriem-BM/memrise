@@ -1,10 +1,6 @@
 from datetime import UTC, datetime
 
 import pytest
-from tests.mocks.graph_repository import GraphRepositoryStub
-from tests.mocks.graph_services import build_graph_projection_service
-from tests.mocks.graph_store import GraphClaimStoreStub
-from tests.mocks.memory_store import make_memory
 
 from memrise.core.enums import GraphClaimStatus
 from memrise.core.graph import GraphClaim, GraphClaimPersistenceResult, GraphEntity
@@ -17,6 +13,10 @@ from memrise.graph.projection import (
 )
 from memrise.graph.schema import ValidatedGraphRelation
 from memrise.ports.providers import ExtractedGraphRelation
+from tests.mocks.graph_repository import GraphRepositoryStub
+from tests.mocks.graph_services import build_graph_projection_service
+from tests.mocks.graph_store import GraphClaimStoreStub
+from tests.mocks.memory_store import make_memory
 
 
 @pytest.mark.asyncio
@@ -162,6 +162,7 @@ def test_build_graph_projection_from_claims_attaches_claim_ids() -> None:
                 supporting_memory_version_id=memory.version.id,
                 evidence_text=memory.version.content,
                 confidence=0.9,
+                usefulness_score=0.5,
                 status=GraphClaimStatus.ACTIVE,
                 valid_from=memory.version.valid_from,
                 valid_until=None,

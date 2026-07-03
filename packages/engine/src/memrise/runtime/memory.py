@@ -76,10 +76,12 @@ class Memrise:
         embedding_provider: EmbeddingProvider,
         token_counter: TokenCounter,
         feedback_policy: FeedbackPolicy,
+        usefulness_half_life_days: float = 30.0,
     ) -> None:
         self._store = store
         self._jobs = jobs
         self._graph_repository = graph_repository
+        self._graph_claim_store = graph_claim_store
         self._feedback_policy = feedback_policy
         self._token_counter = token_counter
         self._embedding_provider = embedding_provider
@@ -94,6 +96,7 @@ class Memrise:
             completion_provider=completion_provider,
             embedding_provider=embedding_provider,
             token_counter=token_counter,
+            usefulness_half_life_days=usefulness_half_life_days,
         )
         self._write = services.write
         self._retrieval = services.retrieval
@@ -363,10 +366,15 @@ class Memrise:
         )
         score = await self._store.save_feedback(feedback)
         if feedback.graph_edge_id is not None and score is not None:
-            await self._graph_repository.update_edge_usefulness(
+            claim_id = await self._graph_repository.update_edge_usefulness(
                 feedback.graph_edge_id,
                 score,
             )
+            if claim_id is not None and self._graph_claim_store is not None:
+                await self._graph_claim_store.update_claim_usefulness(
+                    claim_id=claim_id,
+                    usefulness_score=score,
+                )
         return FeedbackResponse(
             feedback_id=feedback.id,
             updated_memory_version_id=request.memory_version_id,

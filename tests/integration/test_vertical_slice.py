@@ -1,10 +1,10 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from tests.integration.db import database_url
 
 from memrise import Memrise
 from memrise.core.enums import EpisodeKind, FeedbackOutcome, FeedbackSource
+from tests.integration.db import database_url
 
 DEMO_EPISODE = (
     "Atlas used npm before, but we now use pnpm. Never edit its generated lockfile manually."

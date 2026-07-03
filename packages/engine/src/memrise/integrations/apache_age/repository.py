@@ -18,7 +18,12 @@ from memrise.graph.types import coerce_node_label, coerce_relation, normalize_en
 from memrise.integrations.apache_age import statements as stmt
 from memrise.integrations.apache_age.cypher import CypherExecutor
 from memrise.integrations.apache_age.errors import AgeUnavailableError
-from memrise.integrations.apache_age.row_parser import build_path, parse_edge, parse_vertex
+from memrise.integrations.apache_age.row_parser import (
+    build_path,
+    edge_claim_id,
+    parse_edge,
+    parse_vertex,
+)
 from memrise.ports.ids import IdGenerator
 
 
@@ -130,6 +135,7 @@ class AgeGraphRepository:
                 source_memory_version_id=projection.memory_version_id,
                 claim_id=edge.claim_id,
                 confidence=projection.confidence,
+                usefulness_score=edge.usefulness_score,
                 valid_from=projection.valid_from,
             )
             created_edge_uids.append(edge_uid)
@@ -220,8 +226,8 @@ class AgeGraphRepository:
         )
         return await self.search(request)
 
-    async def update_edge_usefulness(self, edge_uid: str, usefulness_score: float) -> None:
-        await self._cypher.run(
+    async def update_edge_usefulness(self, edge_uid: str, usefulness_score: float) -> str | None:
+        rows = await self._cypher.run(
             stmt.UPDATE_EDGE_USEFULNESS,
             {
                 "edge_uid": edge_uid,
@@ -229,6 +235,21 @@ class AgeGraphRepository:
             },
             columns=("r",),
         )
+        if not rows:
+            return None
+        return edge_claim_id(rows[0].get("r"))
+
+    async def expire_due_edges(self, *, now: datetime) -> int:
+        if not await self.is_available():
+            return 0
+        rows = await self._cypher.run(
+            stmt.EXPIRE_DUE_EDGES,
+            {"now": now.isoformat()},
+            columns=("expired_count",),
+        )
+        if not rows:
+            return 0
+        return int(str(rows[0].get("expired_count", 0) or 0))
 
     async def list_edges_for_memory_version(
         self,
@@ -312,6 +333,7 @@ class AgeGraphRepository:
         source_memory_version_id: str,
         claim_id: str | None,
         confidence: float,
+        usefulness_score: float,
         valid_from: datetime,
     ) -> None:
         await self._cypher.run(
@@ -330,7 +352,7 @@ class AgeGraphRepository:
                 "claim_id": claim_id,
                 "status": GraphEdgeStatus.ACTIVE.value,
                 "confidence": confidence,
-                "usefulness_score": 0.5,
+                "usefulness_score": usefulness_score,
                 "valid_from": valid_from.isoformat(),
                 "valid_until": None,
             },

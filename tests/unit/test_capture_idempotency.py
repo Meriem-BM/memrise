@@ -2,8 +2,6 @@ from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
-from tests.mocks.memory_store import MemoryStoreStub
-from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
 
 from memrise.core.enums import EpisodeKind, JobType
 from memrise.core.models import Episode
@@ -11,6 +9,8 @@ from memrise.runtime.ids import UuidGenerator
 from memrise.schemas.requests import CaptureRequest
 from memrise.write.importance import ImportanceGate
 from memrise.write.service import WriteService
+from tests.mocks.memory_store import MemoryStoreStub
+from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
 
 
 class DedupingJobQueueStub:

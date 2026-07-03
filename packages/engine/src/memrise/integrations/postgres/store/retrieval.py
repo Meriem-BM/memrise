@@ -1,7 +1,9 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from memrise.core.enums import FeedbackOutcome, MemoryStatus
 from memrise.core.models import Feedback, RetrievalItem, RetrievalTrace
+from memrise.core.time import utc_now
 from memrise.integrations.postgres.schema.mappers import (
     retrieval_item_from_row,
     retrieval_trace_from_row,
@@ -14,6 +16,7 @@ from memrise.integrations.postgres.schema.models import (
 )
 from memrise.integrations.postgres.session import session_scope
 from memrise.learning.apply import MemoryApplyService
+from memrise.learning.lifecycle import HARMFUL_ARCHIVE_THRESHOLD
 
 
 class PostgresRetrievalRepository:
@@ -88,6 +91,15 @@ class PostgresRetrievalRepository:
                 current_score=row.usefulness_score,
             )
             row.usefulness_score = score
+            if (
+                feedback.outcome == FeedbackOutcome.HARMFUL
+                and score <= HARMFUL_ARCHIVE_THRESHOLD
+                and row.status in (MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value)
+            ):
+                now = utc_now()
+                row.status = MemoryStatus.EXPIRED.value
+                row.valid_until = now
+                row.updated_at = now
             return score
 
     async def get_retrieval_items(self, retrieval_id: str) -> list[RetrievalItem]:

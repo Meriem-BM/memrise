@@ -1,18 +1,16 @@
 from datetime import UTC, datetime
 
-import pytest
-from tests.mocks.graph_services import build_graph_projection_service
-from tests.mocks.memory_store import MemoryStoreStub
-from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
-
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import EpisodeKind, JobStatus, JobType
-from memrise.core.errors import UnimplementedJobError
 from memrise.core.models import BackgroundJob, Episode
+from memrise.learning.lifecycle import LifecycleService
 from memrise.runtime.ids import UuidGenerator
 from memrise.runtime.job_processor import JobProcessor
 from memrise.write.importance import ImportanceGate
 from memrise.write.service import WriteService
+from tests.mocks.graph_services import build_graph_projection_service
+from tests.mocks.memory_store import MemoryStoreStub
+from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
 
 
 class JobQueueStub:
@@ -54,6 +52,7 @@ def _processor(store: MemoryStoreStub) -> JobProcessor:
         write=write,
         graph_projection=build_graph_projection_service(),
         session_consolidation=SessionConsolidationService(store=store, write=write),
+        lifecycle=LifecycleService(store=store),
     )
 
 
@@ -103,9 +102,8 @@ async def test_consolidate_session_extracts_each_session_episode() -> None:
     assert stages
 
 
-@pytest.mark.parametrize("job_type", [JobType.EXPIRE_MEMORIES, JobType.PROCESS_FEEDBACK])
-async def test_unimplemented_job_types_fail_loudly(job_type: JobType) -> None:
-    processor = _processor(MemoryStoreStub())
+async def test_expire_memories_job_runs_lifecycle() -> None:
+    store = MemoryStoreStub()
+    processor = _processor(store)
 
-    with pytest.raises(UnimplementedJobError):
-        await processor.process(_job(job_type=job_type, payload={}))
+    await processor.process(_job(job_type=JobType.EXPIRE_MEMORIES, payload={}))

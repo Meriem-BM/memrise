@@ -13,6 +13,14 @@ class MemorySettings(BaseSettings):
         alias="MEMRISE_GRAPH_QUERY_TIMEOUT_SECONDS",
     )
     memrise_graph_min_confidence: float = Field(default=0.5, alias="MEMRISE_GRAPH_MIN_CONFIDENCE")
+    memrise_lifecycle_interval_seconds: int = Field(
+        default=3600,
+        alias="MEMRISE_LIFECYCLE_INTERVAL_SECONDS",
+    )
+    memrise_usefulness_half_life_days: float = Field(
+        default=30.0,
+        alias="MEMRISE_USEFULNESS_HALF_LIFE_DAYS",
+    )
 
     alibaba_cloud_api_key: str | None = Field(default=None, alias="ALIBABA_CLOUD_API_KEY")
     alibaba_cloud_base_url: str = Field(

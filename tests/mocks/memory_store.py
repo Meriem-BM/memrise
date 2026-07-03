@@ -29,6 +29,7 @@ from memrise.core.models import (
 )
 from memrise.core.text import normalize_lookup
 from memrise.learning.apply import SEMANTIC_EQUIVALENCE_THRESHOLD, MemoryApplyService
+from memrise.learning.lifecycle import HARMFUL_ARCHIVE_THRESHOLD, decayed_usefulness
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import (
     Reconciler,
@@ -46,6 +47,13 @@ from memrise.runtime.ids import UuidGenerator
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _with_version(memory: CanonicalMemory, **changes: object) -> CanonicalMemory:
+    return CanonicalMemory(
+        identity=memory.identity,
+        version=replace(memory.version, **changes),  # type: ignore[arg-type]
+    )
 
 
 def _search_terms(text: str) -> set[str]:
@@ -216,6 +224,87 @@ class MemoryStoreStub:
             if memory.version.status in statuses:
                 results.append(memory)
         return results
+
+    async def expire_due_memories(self, *, now: datetime) -> int:
+        expired = 0
+        updated: list[CanonicalMemory] = []
+        for memory in self.memories:
+            version = memory.version
+            if (
+                version.status in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED)
+                and version.valid_until is not None
+                and version.valid_until <= now
+            ):
+                updated.append(_with_version(memory, status=MemoryStatus.EXPIRED))
+                expired += 1
+            else:
+                updated.append(memory)
+        self.memories = updated
+        return expired
+
+    async def decay_usefulness(
+        self,
+        *,
+        now: datetime,
+        half_life_days: float,
+        min_elapsed_seconds: int,
+    ) -> int:
+        decayed = 0
+        updated: list[CanonicalMemory] = []
+        for memory in self.memories:
+            version = memory.version
+            elapsed = (now - version.created_at).total_seconds()
+            if (
+                version.status in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED)
+                and elapsed >= min_elapsed_seconds
+                and abs(version.usefulness_score - 0.5) > 0.0001
+            ):
+                score = decayed_usefulness(
+                    version.usefulness_score,
+                    elapsed_seconds=elapsed,
+                    half_life_days=half_life_days,
+                )
+                updated.append(_with_version(memory, usefulness_score=score))
+                decayed += 1
+            else:
+                updated.append(memory)
+        self.memories = updated
+        return decayed
+
+    async def resolve_contested(self, *, now: datetime, margin: float) -> int:
+        contested_by_memory: dict[str, list[CanonicalMemory]] = {}
+        for memory in self.memories:
+            if memory.version.status == MemoryStatus.CONTESTED:
+                contested_by_memory.setdefault(memory.identity.id, []).append(memory)
+        resolved = 0
+        for versions in contested_by_memory.values():
+            if len(versions) < 2:
+                continue
+            versions.sort(key=lambda item: item.version.version_number)
+            loser, winner = sorted(
+                versions[-2:],
+                key=lambda item: item.version.usefulness_score + item.version.confidence,
+            )
+            gap = (winner.version.usefulness_score + winner.version.confidence) - (
+                loser.version.usefulness_score + loser.version.confidence
+            )
+            if gap < margin:
+                continue
+            self._replace_version(_with_version(winner, status=MemoryStatus.ACTIVE))
+            self._replace_version(
+                _with_version(
+                    loser,
+                    status=MemoryStatus.SUPERSEDED,
+                    superseded_by_version_id=winner.version.id,
+                )
+            )
+            resolved += 1
+        return resolved
+
+    def _replace_version(self, memory: CanonicalMemory) -> None:
+        self.memories = [
+            memory if item.version.id == memory.version.id else item for item in self.memories
+        ]
 
     async def search_lexical(
         self,
@@ -646,6 +735,17 @@ class MemoryStoreStub:
             return None
         delta = DefaultFeedbackPolicy().usefulness_delta(feedback.outcome, feedback.confidence)
         updated_score = min(1.0, max(0.0, memory.version.usefulness_score + delta))
+        from memrise.core.enums import FeedbackOutcome
+
+        if (
+            feedback.outcome == FeedbackOutcome.HARMFUL
+            and updated_score <= HARMFUL_ARCHIVE_THRESHOLD
+            and memory.version.status in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED)
+        ):
+            self._replace_version(
+                _with_version(memory, usefulness_score=updated_score, status=MemoryStatus.EXPIRED)
+            )
+            return updated_score
         self.memories = [
             make_memory(
                 memory_id=item.identity.id,

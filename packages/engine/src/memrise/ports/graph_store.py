@@ -88,6 +88,10 @@ class GraphClaimStore(Protocol):
         memory_version_id: str | None = None,
     ) -> list[GraphClaim]: ...
 
+    async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None: ...
+
+    async def expire_due_claims(self, *, now: datetime) -> int: ...
+
     async def list_conflicting_active_claims(
         self,
         *,

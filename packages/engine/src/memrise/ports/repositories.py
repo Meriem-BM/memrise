@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 from memrise.core.enums import CandidateStageStatus, FeedbackOutcome, FeedbackSource, JobType
@@ -119,6 +120,18 @@ class MemoryStore(Protocol):
     async def list_recent_retrievals(
         self, *, namespace_id: str, limit: int
     ) -> list[RetrievalTrace]: ...
+
+    async def expire_due_memories(self, *, now: datetime) -> int: ...
+
+    async def decay_usefulness(
+        self,
+        *,
+        now: datetime,
+        half_life_days: float,
+        min_elapsed_seconds: int,
+    ) -> int: ...
+
+    async def resolve_contested(self, *, now: datetime, margin: float) -> int: ...
 
 
 class JobQueue(Protocol):

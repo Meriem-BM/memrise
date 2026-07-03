@@ -1,5 +1,11 @@
 from datetime import UTC, datetime
 
+from memrise.core.enums import CandidateStageStatus, Criticality, EpisodeKind, JobType, MemoryType
+from memrise.core.models import BackgroundJob, Episode, Scope
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
+from memrise.runtime.ids import UuidGenerator
+from memrise.write.importance import ImportanceGate
+from memrise.write.service import WriteService
 from tests.mocks.memory_store import MemoryStoreStub, make_memory
 from tests.mocks.providers import (
     MockCompletionProvider,
@@ -7,13 +13,6 @@ from tests.mocks.providers import (
     no_memory_result,
     single_candidate_result,
 )
-
-from memrise.core.enums import CandidateStageStatus, Criticality, EpisodeKind, JobType, MemoryType
-from memrise.core.models import BackgroundJob, Episode, Scope
-from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
-from memrise.runtime.ids import UuidGenerator
-from memrise.write.importance import ImportanceGate
-from memrise.write.service import WriteService
 
 
 class JobQueueStub:

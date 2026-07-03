@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from memrise.core.enums import CandidateStageStatus
@@ -196,3 +198,22 @@ class PostgresMemoryStore:
             namespace_id=namespace_id,
             limit=limit,
         )
+
+    async def expire_due_memories(self, *, now: datetime) -> int:
+        return await self._memories.expire_due_memories(now=now)
+
+    async def decay_usefulness(
+        self,
+        *,
+        now: datetime,
+        half_life_days: float,
+        min_elapsed_seconds: int,
+    ) -> int:
+        return await self._memories.decay_usefulness(
+            now=now,
+            half_life_days=half_life_days,
+            min_elapsed_seconds=min_elapsed_seconds,
+        )
+
+    async def resolve_contested(self, *, now: datetime, margin: float) -> int:
+        return await self._memories.resolve_contested(now=now, margin=margin)

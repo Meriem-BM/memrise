@@ -111,6 +111,7 @@ def build_graph_projection_from_claims(
                 entity_name_by_id.get(claim.object_entity_id, claim.object_entity_id),
             ),
             claim_id=claim.id,
+            usefulness_score=claim.usefulness_score,
         )
         for claim in persisted.claims
     )
@@ -158,6 +159,7 @@ def build_projection_from_active_claims(
                 relation=claim.predicate,
                 target=target.temporary_id,
                 claim_id=claim.id,
+                usefulness_score=claim.usefulness_score,
             )
         )
     if not edge_candidates:

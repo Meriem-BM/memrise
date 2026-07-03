@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import pytest
-from tests.mocks.memory_store import make_memory
 
 from memrise.core.enums import EpisodeKind
 from memrise.core.models import Episode
@@ -13,6 +12,7 @@ from memrise.graph.schema import (
     validate_relations,
 )
 from memrise.ports.providers import ExtractedGraphRelation
+from tests.mocks.memory_store import make_memory
 
 
 @pytest.mark.asyncio

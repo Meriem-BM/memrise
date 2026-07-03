@@ -4,11 +4,11 @@ from typing import Literal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from tests.mocks.memory_store import MemoryStoreStub
 
 from memrise.integrations.postgres import PostgresMemoryStore, make_session_factory
 from memrise.ports.repositories import MemoryStore
 from memrise.runtime.ids import UuidGenerator
+from tests.mocks.memory_store import MemoryStoreStub
 
 StoreBackend = Literal["stub", "postgres"]
 

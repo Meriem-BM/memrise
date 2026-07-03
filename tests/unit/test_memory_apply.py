@@ -1,7 +1,5 @@
 from datetime import UTC, datetime
 
-from tests.mocks.memory_store import make_memory
-
 from memrise.core.enums import Criticality, MemoryOperation, MemoryStatus, MemoryType
 from memrise.core.models import Scope
 from memrise.learning.apply import MemoryApplyService
@@ -9,6 +7,7 @@ from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import Reconciler
 from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
+from tests.mocks.memory_store import make_memory
 
 NOW = datetime(2026, 7, 3, tzinfo=UTC)
 SCOPE = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")

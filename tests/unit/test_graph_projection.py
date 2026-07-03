@@ -1,7 +1,6 @@
-from tests.mocks.memory_store import make_memory
-
 from memrise.graph.projection import build_graph_projection
 from memrise.ports.providers import ExtractedGraphRelation
+from tests.mocks.memory_store import make_memory
 
 
 def test_build_graph_projection_returns_none_for_low_confidence() -> None:

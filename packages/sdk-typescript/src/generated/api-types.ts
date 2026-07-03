@@ -465,7 +465,7 @@ export interface components {
          * JobType
          * @enum {string}
          */
-        JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "process_feedback" | "project_graph" | "rebuild_graph";
+        JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "project_graph" | "rebuild_graph";
         /** MemoryExplanation */
         MemoryExplanation: {
             current_version: components["schemas"]["MemorySummary"] | null;

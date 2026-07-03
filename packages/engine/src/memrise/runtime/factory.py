@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.graph.projection import GraphProjectionService, GraphRebuildService
+from memrise.learning.lifecycle import LifecycleService
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.providers import CompletionProvider, EmbeddingProvider, TokenCounter
@@ -38,6 +39,7 @@ def build_runtime_services(
     completion_provider: CompletionProvider,
     embedding_provider: EmbeddingProvider,
     token_counter: TokenCounter,
+    usefulness_half_life_days: float = 30.0,
 ) -> RuntimeServices:
     ids = UuidGenerator()
     write = WriteService(
@@ -64,6 +66,12 @@ def build_runtime_services(
         graph_projection=graph_projection,
         graph_rebuild=graph_rebuild,
         session_consolidation=SessionConsolidationService(store=store, write=write),
+        lifecycle=LifecycleService(
+            store=store,
+            claim_store=graph_claim_store,
+            graph_repository=graph_repository,
+            half_life_days=usefulness_half_life_days,
+        ),
     )
     return RuntimeServices(
         write=write,

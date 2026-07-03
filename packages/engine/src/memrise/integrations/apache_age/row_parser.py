@@ -77,6 +77,17 @@ def parse_edge(value: Any) -> GraphEdge | None:
     )
 
 
+def edge_claim_id(value: Any) -> str | None:
+    payload = _strip_agtype(value)
+    if not isinstance(payload, dict):
+        return None
+    claim_id = (payload.get("properties") or {}).get("claim_id")
+    if claim_id is None:
+        return None
+    text = str(claim_id).strip()
+    return text or None
+
+
 def _parse_datetime(value: Any):
 
     if value is None or value == "":

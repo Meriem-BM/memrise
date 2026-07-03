@@ -38,6 +38,7 @@ def _claim_from_row(row: GraphClaimRow) -> GraphClaim:
         supporting_memory_version_id=row.supporting_memory_version_id,
         evidence_text=row.evidence_text,
         confidence=row.confidence,
+        usefulness_score=row.usefulness_score,
         status=GraphClaimStatus(row.status),
         valid_from=row.valid_from,
         valid_until=row.valid_until,
@@ -256,6 +257,7 @@ class PostgresGraphClaimStore:
                     supporting_memory_version_id=supporting_memory_version_id,
                     evidence_text=evidence_text,
                     confidence=confidence,
+                    usefulness_score=0.5,
                     status=GraphClaimStatus.ACTIVE.value,
                     valid_from=valid_from,
                     valid_until=None,
@@ -335,6 +337,28 @@ class PostgresGraphClaimStore:
             ).all()
             for row in rows:
                 row.status = GraphClaimStatus.CONTRADICTED.value
+            return len(rows)
+
+    async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None:
+        async with session_scope(self._session_factory) as session:
+            row = await session.get(GraphClaimRow, claim_id)
+            if row is None:
+                return
+            row.usefulness_score = usefulness_score
+
+    async def expire_due_claims(self, *, now: datetime) -> int:
+        async with session_scope(self._session_factory) as session:
+            rows = (
+                await session.scalars(
+                    select(GraphClaimRow).where(
+                        GraphClaimRow.status == GraphClaimStatus.ACTIVE.value,
+                        GraphClaimRow.valid_until.is_not(None),
+                        GraphClaimRow.valid_until <= now,
+                    )
+                )
+            ).all()
+            for row in rows:
+                row.status = GraphClaimStatus.EXPIRED.value
             return len(rows)
 
     async def list_conflicting_active_claims(

@@ -1,10 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from tests.mocks.memory_store import make_memory
-
 from memrise.core.enums import Criticality, MemoryOperation, MemoryStatus, MemoryType
 from memrise.learning.reconciliation import Reconciler
 from memrise.ports.providers import EvidenceRole, ExtractedMemoryCandidate
+from tests.mocks.memory_store import make_memory
 
 NOW = datetime(2026, 7, 3, tzinfo=UTC)
 

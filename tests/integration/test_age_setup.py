@@ -1,11 +1,11 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from tests.integration.db import database_url
 
 from memrise.integrations.apache_age.repository import AgeGraphRepository
 from memrise.integrations.postgres.session import make_session_factory
 from memrise.runtime.ids import UuidGenerator
+from tests.integration.db import database_url
 
 pytestmark = pytest.mark.asyncio
 

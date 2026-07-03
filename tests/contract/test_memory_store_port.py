@@ -2,6 +2,10 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
+from memrise.core.enums import MemoryStatus
+from memrise.core.errors import IdempotencyConflictError
+from memrise.ports.repositories import MemoryStore
 from tests.builders.memory import (
     capture_episode,
     contract_scope,
@@ -12,10 +16,6 @@ from tests.builders.memory import (
     seed_superseded_npm_only,
     seed_superseded_npm_with_active_pnpm,
 )
-
-from memrise.core.enums import MemoryStatus
-from memrise.core.errors import IdempotencyConflictError
-from memrise.ports.repositories import MemoryStore
 
 pytestmark = pytest.mark.asyncio
 

@@ -1,8 +1,8 @@
 import pytest
-from tests.mocks.graph_store import GraphClaimStoreStub
 
 from memrise.graph.entities import EntityMention, EntityResolver, query_search_terms
 from memrise.graph.identity import stable_entity_id
+from tests.mocks.graph_store import GraphClaimStoreStub
 
 
 @pytest.mark.asyncio

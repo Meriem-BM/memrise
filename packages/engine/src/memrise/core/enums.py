@@ -93,7 +93,6 @@ class JobType(StrEnum):
     EXTRACT_EPISODE = "extract_episode"
     CONSOLIDATE_SESSION = "consolidate_session"
     EXPIRE_MEMORIES = "expire_memories"
-    PROCESS_FEEDBACK = "process_feedback"
     PROJECT_GRAPH = "project_graph"
     REBUILD_GRAPH = "rebuild_graph"
 

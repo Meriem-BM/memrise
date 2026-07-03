@@ -1,7 +1,4 @@
 import pytest
-from tests.mocks.graph_repository import GraphRepositoryStub
-from tests.mocks.memory_store import MemoryStoreStub, make_memory
-from tests.mocks.providers import MockEmbeddingProvider
 
 from memrise.core.enums import MemoryStatus, RetrievalSourceType
 from memrise.core.models import Scope
@@ -16,6 +13,9 @@ from memrise.read.retrieval import (
 )
 from memrise.runtime.ids import UuidGenerator
 from memrise.runtime.token_counter import ApproximateTokenCounter
+from tests.mocks.graph_repository import GraphRepositoryStub
+from tests.mocks.memory_store import MemoryStoreStub, make_memory
+from tests.mocks.providers import MockEmbeddingProvider
 
 
 def test_reciprocal_rank_fusion_combines_ranks() -> None:
@@ -179,3 +179,49 @@ async def test_lexical_channel_comes_from_store_search() -> None:
     hits = await store.search_lexical(scope=scope, query="pnpm dependencies", limit=10)
 
     assert [memory.version.id for memory, _ in hits] == ["memv_hit"]
+
+
+async def test_task_type_applicability_filters_and_boosts() -> None:
+    deploy_only = make_memory(
+        memory_id="mem_deploy",
+        version_id="memv_deploy",
+        key="deploy_rules",
+        content="Atlas deploys need pnpm build first.",
+        applicability={"task_type": "deploy"},
+    )
+    general = make_memory(
+        memory_id="mem_general",
+        version_id="memv_general",
+        content="Atlas uses pnpm for dependencies.",
+    )
+    store = MemoryStoreStub(memories=[deploy_only, general])
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    _, _, for_review, _, _ = await service.retrieve(
+        scope=scope,
+        query="Atlas pnpm",
+        task_type="code_review",
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+    assert [memory.version.id for memory in for_review] == ["memv_general"]
+
+    _, _, for_deploy, _, _ = await service.retrieve(
+        scope=scope,
+        query="Atlas pnpm",
+        task_type="deploy",
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+    deploy_ids = [memory.version.id for memory in for_deploy]
+    assert deploy_ids[0] == "memv_deploy"
+    assert "memv_general" in deploy_ids

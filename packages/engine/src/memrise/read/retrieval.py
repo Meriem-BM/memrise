@@ -17,6 +17,8 @@ RRF_K = 60
 CONTESTED_RANK_PENALTY = 0.04
 # Per-channel candidate cap for the SQL-backed lexical and semantic searches.
 CHANNEL_LIMIT = 50
+# Ranking boost for memories whose declared applicability matches the task.
+TASK_MATCH_BOOST = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +65,32 @@ def scope_specificity(memory: CanonicalMemory) -> float:
     if memory.identity.project_id is not None:
         score += 0.08
     return score
+
+
+def task_type_matches(memory: CanonicalMemory, task_type: str | None) -> bool | None:
+    """Tri-state applicability check.
+
+    Returns None when the memory declares no task types (always retrievable),
+    True on a declared match (ranking boost), False on a declared mismatch
+    (excluded for this task).
+    """
+    declared = _declared_task_types(memory.version.applicability)
+    if not declared:
+        return None
+    if task_type is None:
+        return None
+    return task_type.strip().lower() in declared
+
+
+def _declared_task_types(applicability: dict) -> frozenset[str]:
+    raw = applicability.get("task_types", applicability.get("task_type"))
+    if isinstance(raw, str):
+        values = [raw]
+    elif isinstance(raw, list):
+        values = [item for item in raw if isinstance(item, str)]
+    else:
+        return frozenset()
+    return frozenset(value.strip().lower() for value in values if value.strip())
 
 
 def graph_score(*, seed_match_score: float, path_confidence: float, path_length: int) -> float:
@@ -128,7 +156,11 @@ class RetrievalService:
         graph_hops: int,
     ) -> tuple[str, list[CanonicalMemory], list[CanonicalMemory], str, int]:
         memories = await self._store.list_active_memories(scope=scope, include_contested=True)
-        applicable = [memory for memory in memories if self._is_applicable(memory)]
+        applicable = [
+            memory
+            for memory in memories
+            if self._is_applicable(memory) and task_type_matches(memory, task_type) is not False
+        ]
         memory_by_version_id = {memory.version.id: memory for memory in applicable}
         critical = self._select_critical(applicable, query, token_budget)
 
@@ -169,6 +201,7 @@ class RetrievalService:
                 + memory.version.usefulness_score * 0.12
                 + memory.version.confidence * 0.08
                 + scope_specificity(memory)
+                + (TASK_MATCH_BOOST if task_type_matches(memory, task_type) else 0.0)
                 - (
                     CONTESTED_RANK_PENALTY
                     if memory.version.status == MemoryStatus.CONTESTED

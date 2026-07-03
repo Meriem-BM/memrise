@@ -55,4 +55,5 @@ def build_postgres_memory(settings: MemorySettings) -> Memrise:
         embedding_provider=QwenEmbeddingProvider(settings),
         token_counter=ApproximateTokenCounter(),
         feedback_policy=DefaultFeedbackPolicy(),
+        usefulness_half_life_days=settings.memrise_usefulness_half_life_days,
     )

@@ -2,14 +2,6 @@ import asyncio
 from uuid import uuid4
 
 import pytest
-from tests.integration.db import database_url
-from tests.mocks.graph_repository import GraphRepositoryStub
-from tests.mocks.graph_services import build_graph_projection_service
-from tests.mocks.providers import (
-    MockCompletionProvider,
-    MockEmbeddingProvider,
-    single_candidate_result,
-)
 
 from memrise.core.enums import Criticality, EpisodeKind, MemoryStatus, MemoryType
 from memrise.core.models import Scope
@@ -23,6 +15,14 @@ from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
 from memrise.runtime.memory import Memrise
 from memrise.runtime.token_counter import ApproximateTokenCounter
+from tests.integration.db import database_url
+from tests.mocks.graph_repository import GraphRepositoryStub
+from tests.mocks.graph_services import build_graph_projection_service
+from tests.mocks.providers import (
+    MockCompletionProvider,
+    MockEmbeddingProvider,
+    single_candidate_result,
+)
 
 pytestmark = pytest.mark.asyncio
 

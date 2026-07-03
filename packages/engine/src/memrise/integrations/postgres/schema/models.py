@@ -396,6 +396,7 @@ class GraphClaimRow(Base):
     )
     evidence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[float] = mapped_column(Float)
+    usefulness_score: Mapped[float] = mapped_column(Float, default=0.5, server_default="0.5")
     status: Mapped[str] = mapped_column(String(32), index=True)
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -155,6 +155,7 @@ class GraphClaimStoreStub:
             supporting_memory_version_id=supporting_memory_version_id,
             evidence_text=evidence_text,
             confidence=confidence,
+            usefulness_score=0.5,
             status=GraphClaimStatus.ACTIVE,
             valid_from=valid_from,
             valid_until=None,
@@ -208,6 +209,24 @@ class GraphClaimStoreStub:
             self.claims[claim_id] = replace(claim, status=GraphClaimStatus.CONTRADICTED)
             count += 1
         return count
+
+    async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None:
+        claim = self.claims.get(claim_id)
+        if claim is None:
+            return
+        self.claims[claim_id] = replace(claim, usefulness_score=usefulness_score)
+
+    async def expire_due_claims(self, *, now: datetime) -> int:
+        expired = 0
+        for claim_id, claim in list(self.claims.items()):
+            if (
+                claim.status == GraphClaimStatus.ACTIVE
+                and claim.valid_until is not None
+                and claim.valid_until <= now
+            ):
+                self.claims[claim_id] = replace(claim, status=GraphClaimStatus.EXPIRED)
+                expired += 1
+        return expired
 
     async def list_conflicting_active_claims(
         self,

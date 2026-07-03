@@ -1,4 +1,6 @@
-from sqlalchemy import or_, select, update
+from datetime import datetime, timedelta
+
+from sqlalchemy import extract, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from memrise.core.enums import MemoryStatus
@@ -76,6 +78,81 @@ class PostgresMemoryRepository:
                 )
             ).all()
             return [canonical_from_rows(memory, version) for memory, version in rows]
+
+    async def expire_due_memories(self, *, now: datetime) -> int:
+        async with session_scope(self._session_factory) as session:
+            result = await session.execute(
+                update(MemoryVersionRow)
+                .where(
+                    MemoryVersionRow.status.in_(
+                        [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                    ),
+                    MemoryVersionRow.valid_until.is_not(None),
+                    MemoryVersionRow.valid_until <= now,
+                )
+                .values(status=MemoryStatus.EXPIRED.value, updated_at=now)
+            )
+            return int(getattr(result, "rowcount", 0) or 0)
+
+    async def decay_usefulness(
+        self,
+        *,
+        now: datetime,
+        half_life_days: float,
+        min_elapsed_seconds: int,
+    ) -> int:
+        cutoff = now - timedelta(seconds=min_elapsed_seconds)
+        elapsed_seconds = extract("epoch", now - MemoryVersionRow.updated_at)
+        factor = func.power(0.5, elapsed_seconds / (half_life_days * 86_400.0))
+        async with session_scope(self._session_factory) as session:
+            result = await session.execute(
+                update(MemoryVersionRow)
+                .where(
+                    MemoryVersionRow.status.in_(
+                        [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                    ),
+                    MemoryVersionRow.updated_at <= cutoff,
+                    func.abs(MemoryVersionRow.usefulness_score - 0.5) > 0.0001,
+                )
+                .values(
+                    usefulness_score=0.5 + (MemoryVersionRow.usefulness_score - 0.5) * factor,
+                    updated_at=now,
+                )
+            )
+            return int(getattr(result, "rowcount", 0) or 0)
+
+    async def resolve_contested(self, *, now: datetime, margin: float) -> int:
+        async with session_scope(self._session_factory) as session:
+            rows = (
+                await session.scalars(
+                    select(MemoryVersionRow)
+                    .where(MemoryVersionRow.status == MemoryStatus.CONTESTED.value)
+                    .order_by(MemoryVersionRow.memory_id, MemoryVersionRow.version_number)
+                )
+            ).all()
+            by_memory: dict[str, list[MemoryVersionRow]] = {}
+            for row in rows:
+                by_memory.setdefault(row.memory_id, []).append(row)
+            resolved = 0
+            for versions in by_memory.values():
+                if len(versions) < 2:
+                    continue
+                loser, winner = sorted(
+                    versions[-2:], key=lambda row: row.usefulness_score + row.confidence
+                )
+                gap = (winner.usefulness_score + winner.confidence) - (
+                    loser.usefulness_score + loser.confidence
+                )
+                if gap < margin:
+                    continue
+                winner.status = MemoryStatus.ACTIVE.value
+                winner.updated_at = now
+                loser.status = MemoryStatus.SUPERSEDED.value
+                loser.valid_until = now
+                loser.superseded_by_version_id = winner.id
+                loser.updated_at = now
+                resolved += 1
+            return resolved
 
     async def search_lexical(
         self,

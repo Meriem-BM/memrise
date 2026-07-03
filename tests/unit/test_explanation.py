@@ -1,12 +1,11 @@
 from datetime import UTC, datetime
 
-from tests.mocks.graph_repository import ExplanationGraphRepository
-from tests.mocks.memory_store import ExplanationMemoryStore, make_memory
-
 from memrise.core.enums import GraphEdgeStatus, MemoryStatus
 from memrise.core.graph import GraphEdge
 from memrise.core.models import MemorySource
 from memrise.read.explanation import ExplanationService
+from tests.mocks.graph_repository import ExplanationGraphRepository
+from tests.mocks.memory_store import ExplanationMemoryStore, make_memory
 
 
 def _edge(*, version_id: str, edge_id: str = "edge_1") -> GraphEdge:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from memrise.core.graph import (
     GraphEdge,
@@ -17,6 +18,8 @@ class GraphRepositoryStub:
     neighborhood_paths: list[GraphPath] = field(default_factory=list)
     projected: list[GraphProjection] = field(default_factory=list)
     usefulness_updates: list[tuple[str, float]] = field(default_factory=list)
+    claim_id_by_edge: dict[str, str] = field(default_factory=dict)
+    expired_edge_count: int = 0
 
     async def is_available(self) -> bool:
         return self.available
@@ -42,8 +45,13 @@ class GraphRepositoryStub:
         del node_uid, namespace_id, depth
         return list(self.neighborhood_paths)
 
-    async def update_edge_usefulness(self, edge_uid: str, usefulness_score: float) -> None:
+    async def update_edge_usefulness(self, edge_uid: str, usefulness_score: float) -> str | None:
         self.usefulness_updates.append((edge_uid, usefulness_score))
+        return self.claim_id_by_edge.get(edge_uid)
+
+    async def expire_due_edges(self, *, now: datetime) -> int:
+        del now
+        return self.expired_edge_count
 
     async def list_edges_for_memory_version(
         self, *, namespace_id: str, memory_version_id: str

@@ -1,9 +1,8 @@
-from tests.mocks.memory_store import make_memory
-
 from memrise.core.enums import MemoryType
 from memrise.graph.entities import default_node_type_for_memory, resolve_graph_node_type
 from memrise.graph.projection import build_graph_projection
 from memrise.ports.providers import ExtractedGraphRelation
+from tests.mocks.memory_store import make_memory
 
 
 def test_resolve_graph_node_type_uses_declared_provider_types() -> None:

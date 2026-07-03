@@ -86,6 +86,7 @@ class GraphClaim:
     supporting_memory_version_id: str
     evidence_text: str | None
     confidence: float
+    usefulness_score: float
     status: GraphClaimStatus
     valid_from: datetime
     valid_until: datetime | None
@@ -123,6 +124,7 @@ class GraphEdgeCandidate:
     relation: str
     target: str
     claim_id: str | None = None
+    usefulness_score: float = 0.5
 
 
 @dataclass(frozen=True, slots=True)

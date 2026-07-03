@@ -690,7 +690,6 @@
           "extract_episode",
           "consolidate_session",
           "expire_memories",
-          "process_feedback",
           "project_graph",
           "rebuild_graph"
         ],

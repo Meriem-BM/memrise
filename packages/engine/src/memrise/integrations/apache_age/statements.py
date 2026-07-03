@@ -79,6 +79,15 @@ SET r.usefulness_score = $usefulness_score
 RETURN r
 """
 
+EXPIRE_DUE_EDGES = """
+MATCH ()-[r]->()
+WHERE r.status = 'active'
+  AND r.valid_until IS NOT NULL
+  AND r.valid_until <= $now
+SET r.status = 'expired'
+RETURN count(r) AS expired_count
+"""
+
 ONE_HOP_NEIGHBORHOOD = """
 MATCH (seed)-[r]-(neighbor)
 WHERE seed.namespace_id = $namespace_id
