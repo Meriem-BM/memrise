@@ -156,6 +156,9 @@ class GraphSearchRequest:
     depth: int = 1
     max_paths: int = 20
     max_nodes: int = 50
+    # True when `query` is a resolved entity's normalized name; matches
+    # seed.normalized_name exactly instead of substring CONTAINS.
+    exact_match: bool = False
 
 
 def clamp_graph_depth(depth: int, *, max_depth: int = 2) -> int:

@@ -20,6 +20,7 @@ class GraphRepositoryStub:
     usefulness_updates: list[tuple[str, float]] = field(default_factory=list)
     claim_id_by_edge: dict[str, str] = field(default_factory=dict)
     expired_edge_count: int = 0
+    search_requests: list[GraphSearchRequest] = field(default_factory=list)
 
     async def is_available(self) -> bool:
         return self.available
@@ -36,7 +37,7 @@ class GraphRepositoryStub:
         )
 
     async def search(self, request: GraphSearchRequest) -> list[GraphPath]:
-        del request
+        self.search_requests.append(request)
         return list(self.paths)
 
     async def get_neighborhood(

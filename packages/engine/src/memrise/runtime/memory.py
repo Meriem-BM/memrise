@@ -12,7 +12,7 @@ from memrise.core.enums import (
     JobType,
     MemoryType,
 )
-from memrise.core.graph import clamp_graph_depth
+from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
 from memrise.core.models import BackgroundJob, CanonicalMemory, Episode, Feedback
 from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.ports.graph_repository import GraphRepository
@@ -473,11 +473,20 @@ class Memrise:
         hops: int = 1,
     ) -> GraphNeighborhoodResponse:
         del agent_id, user_id
-        paths = await self._graph_repository.get_neighborhood(
-            node_uid=query or "",
-            namespace_id=namespace_id,
-            depth=clamp_graph_depth(hops),
-        )
+        if query and query.startswith("node-"):
+            paths = await self._graph_repository.get_neighborhood(
+                node_uid=query,
+                namespace_id=namespace_id,
+                depth=clamp_graph_depth(hops),
+            )
+        else:
+            paths = await self._graph_repository.search(
+                GraphSearchRequest(
+                    namespace_id=namespace_id,
+                    query=query or "",
+                    depth=clamp_graph_depth(hops),
+                )
+            )
         return build_graph_neighborhood_response(paths, project_id=project_id)
 
     async def wait_for_job(

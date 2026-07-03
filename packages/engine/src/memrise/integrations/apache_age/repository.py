@@ -150,7 +150,11 @@ class AgeGraphRepository:
     async def search(self, request: GraphSearchRequest) -> list[GraphPath]:
         if not await self.is_available():
             return []
-        terms = [term for term in normalize_entity_name(request.query).split() if term]
+        if request.exact_match:
+            normalized = normalize_entity_name(request.query)
+            terms = [normalized] if normalized else []
+        else:
+            terms = [term for term in normalize_entity_name(request.query).split() if term]
         if not terms:
             return []
         depth = clamp_graph_depth(request.depth)
@@ -159,7 +163,7 @@ class AgeGraphRepository:
         for term in terms:
             if depth == 1:
                 rows = await self._cypher.run(
-                    stmt.ONE_HOP_NEIGHBORHOOD,
+                    stmt.one_hop_statement(exact_match=request.exact_match),
                     {
                         "namespace_id": request.namespace_id,
                         "term": term,
@@ -183,7 +187,7 @@ class AgeGraphRepository:
                         paths.append(built)
             else:
                 rows = await self._cypher.run(
-                    stmt.TWO_HOP_PATH,
+                    stmt.two_hop_statement(exact_match=request.exact_match),
                     {
                         "namespace_id": request.namespace_id,
                         "term": term,
@@ -218,13 +222,34 @@ class AgeGraphRepository:
         namespace_id: str,
         depth: int,
     ) -> list[GraphPath]:
-        request = GraphSearchRequest(
-            namespace_id=namespace_id,
-            query=node_uid,
-            depth=depth,
-            max_paths=20,
+        del depth
+        if not await self.is_available():
+            return []
+        rows = await self._cypher.run(
+            stmt.NEIGHBORHOOD_BY_UID,
+            {
+                "node_uid": node_uid,
+                "namespace_id": namespace_id,
+                "now": utc_now().isoformat(),
+                "limit": 20,
+            },
+            columns=("seed", "r", "neighbor"),
         )
-        return await self.search(request)
+        paths: list[GraphPath] = []
+        for row in rows:
+            seed = parse_vertex(row["seed"])
+            edge = parse_edge(row["r"])
+            neighbor = parse_vertex(row["neighbor"])
+            if seed is None or edge is None or neighbor is None:
+                continue
+            built = build_path(
+                nodes=[seed, neighbor],
+                edges=[edge],
+                seed_match_score=1.0,
+            )
+            if built is not None:
+                paths.append(built)
+        return paths
 
     async def update_edge_usefulness(self, edge_uid: str, usefulness_score: float) -> str | None:
         rows = await self._cypher.run(

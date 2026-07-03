@@ -88,10 +88,10 @@ SET r.status = 'expired'
 RETURN count(r) AS expired_count
 """
 
-ONE_HOP_NEIGHBORHOOD = """
+ONE_HOP_NEIGHBORHOOD_TEMPLATE = """
 MATCH (seed)-[r]-(neighbor)
 WHERE seed.namespace_id = $namespace_id
-  AND seed.normalized_name CONTAINS $term
+  AND seed.normalized_name {seed_match} $term
   AND r.namespace_id = $namespace_id
   AND r.status = 'active'
   AND (r.valid_until IS NULL OR r.valid_until > $now)
@@ -99,10 +99,10 @@ RETURN seed, r, neighbor
 LIMIT $limit
 """
 
-TWO_HOP_PATH = """
+TWO_HOP_PATH_TEMPLATE = """
 MATCH (seed)-[r1]-(mid)-[r2]-(leaf)
 WHERE seed.namespace_id = $namespace_id
-  AND seed.normalized_name CONTAINS $term
+  AND seed.normalized_name {seed_match} $term
   AND r1.namespace_id = $namespace_id
   AND r2.namespace_id = $namespace_id
   AND r1.status = 'active'
@@ -112,6 +112,25 @@ WHERE seed.namespace_id = $namespace_id
 RETURN seed, r1, mid, r2, leaf
 LIMIT $limit
 """
+
+NEIGHBORHOOD_BY_UID = """
+MATCH (seed)-[r]-(neighbor)
+WHERE seed.uid = $node_uid
+  AND seed.namespace_id = $namespace_id
+  AND r.namespace_id = $namespace_id
+  AND r.status = 'active'
+  AND (r.valid_until IS NULL OR r.valid_until > $now)
+RETURN seed, r, neighbor
+LIMIT $limit
+"""
+
+
+def one_hop_statement(*, exact_match: bool) -> str:
+    return ONE_HOP_NEIGHBORHOOD_TEMPLATE.format(seed_match="=" if exact_match else "CONTAINS")
+
+
+def two_hop_statement(*, exact_match: bool) -> str:
+    return TWO_HOP_PATH_TEMPLATE.format(seed_match="=" if exact_match else "CONTAINS")
 
 
 def node_label(node_type: str) -> str:
