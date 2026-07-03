@@ -15,7 +15,6 @@ from memrise.core.enums import (
 )
 from memrise.core.graph import clamp_graph_depth
 from memrise.core.models import BackgroundJob, Episode, Feedback
-from memrise.core.time import utc_now
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.providers import (
     CompletionProvider,
@@ -30,6 +29,7 @@ from memrise.read.retrieval import RetrievalService
 from memrise.runtime.clock import SystemClock
 from memrise.runtime.graph_responses import build_graph_neighborhood_response
 from memrise.runtime.ids import UuidGenerator
+from memrise.runtime.job_processor import JobProcessor
 from memrise.runtime.mappers import (
     retrieval_item_to_summary,
     to_job_summary,
@@ -102,6 +102,11 @@ class Memrise:
             ids=self._ids,
         )
         self._explain = ExplanationService(store, graph_repository=graph_repository)
+        self._job_processor = JobProcessor(
+            store=store,
+            write=self._write,
+            graph_projection=graph_projection,
+        )
 
     @classmethod
     def from_env(cls) -> Memrise:
@@ -513,33 +518,10 @@ class Memrise:
         await self.close()
 
     async def process_job_once(self, worker_id: str = "inline-worker") -> bool:
-        job = await self._jobs.claim_next(worker_id=worker_id)
-        if job is None:
-            return False
-        try:
-            await self.process_job(job)
-            await self._jobs.complete(job.id)
-        except Exception as exc:
-            await self._jobs.fail(job.id, str(exc))
-            raise
-        return True
+        return await self._job_processor.process_once(self._jobs, worker_id=worker_id)
 
     async def process_job(self, job: BackgroundJob) -> None:
-        if job.type == JobType.EXTRACT_EPISODE:
-            episode_id = str(job.payload["episode_id"])
-            await self._write.extract_episode(episode_id, utc_now())
-            return
-        if job.type == JobType.PROJECT_GRAPH:
-            memory_version_id = str(job.payload["memory_version_id"])
-            memory = await self._store.get_memory_version_by_id(memory_version_id)
-            if memory is None:
-                msg = f"memory version {memory_version_id!r} not found for graph projection"
-                raise RuntimeError(msg)
-            relations = [
-                ExtractedGraphRelation.model_validate(raw)
-                for raw in job.payload.get("relations", [])
-            ]
-            await self._graph_projection.project_memory(memory=memory, relations=relations)
+        await self._job_processor.process(job)
 
 
 class Memory(Memrise):
