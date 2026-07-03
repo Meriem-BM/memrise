@@ -1,7 +1,7 @@
 UV_ENV=UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python
 COMPOSE=docker compose -f infra/compose.yaml
 
-.PHONY: bootstrap install-hooks dev stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset migrate migration export-openapi generate-sdk
+.PHONY: bootstrap install-hooks dev dev-local stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset postgres-up migrate migration export-openapi generate-sdk
 
 bootstrap:
 	$(UV_ENV) uv sync --all-packages
@@ -13,6 +13,23 @@ install-hooks:
 
 dev:
 	$(COMPOSE) up --build
+
+postgres-up:
+	$(COMPOSE) up -d --build postgres
+	@$(MAKE) postgres-wait
+
+postgres-wait:
+	@for _ in $$(seq 1 40); do \
+		if $(COMPOSE) exec -T postgres pg_isready -U memrise -d memrise >/dev/null 2>&1; then \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "postgres failed to become ready"; \
+	exit 1
+
+dev-local: postgres-up migrate
+	bash scripts/dev-local.sh
 
 stop:
 	$(COMPOSE) down

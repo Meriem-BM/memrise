@@ -10,6 +10,7 @@ test-results/
 .pytest_cache/
 .pyright/
 .turbo/
+.claude/
 __pycache__/
 uv.lock
 pnpm-lock.yaml

@@ -14,5 +14,6 @@ playwright-report/
 test-results/
 coverage/
 .turbo/
+.claude/
 *.pyc
 *.tsbuildinfo
