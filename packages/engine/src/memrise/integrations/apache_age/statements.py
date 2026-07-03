@@ -1,4 +1,4 @@
-from memrise.graph.ontology import NodeType, RelationType
+from memrise.graph.types import coerce_node_label, coerce_relation
 
 GRAPH_NAME = "memrise_graph"
 
@@ -41,6 +41,7 @@ CREATE (source)-[r:{relation} {{
   target_uid: $target_uid,
   relation: $relation_name,
   source_memory_version_id: $source_memory_version_id,
+  claim_id: $claim_id,
   status: $status,
   confidence: $confidence,
   usefulness_score: $usefulness_score,
@@ -104,9 +105,9 @@ LIMIT $limit
 """
 
 
-def node_label(node_type: NodeType) -> str:
-    return node_type.value
+def node_label(node_type: str) -> str:
+    return coerce_node_label(node_type)
 
 
-def relation_label(relation: RelationType) -> str:
-    return relation.value
+def relation_label(relation: str) -> str:
+    return coerce_relation(relation)

@@ -13,8 +13,8 @@ from memrise.core.graph import (
     clamp_graph_depth,
 )
 from memrise.core.time import utc_now
-from memrise.graph.ontology import NodeType, RelationType, normalize_entity_name
-from memrise.graph.projection_builder import node_identity_key
+from memrise.graph.identity import node_identity_key
+from memrise.graph.types import coerce_node_label, coerce_relation, normalize_entity_name
 from memrise.integrations.apache_age import statements as stmt
 from memrise.integrations.apache_age.cypher import CypherExecutor
 from memrise.integrations.apache_age.errors import AgeUnavailableError
@@ -67,7 +67,7 @@ class AgeGraphRepository:
         for candidate in projection.nodes:
             uid = self.stable_node_uid(
                 namespace_id=projection.namespace_id,
-                node_type=NodeType(candidate.node_type),
+                node_type=candidate.node_type,
                 name=candidate.name,
             )
             node_uid_by_temp_id[candidate.temporary_id] = uid
@@ -87,24 +87,24 @@ class AgeGraphRepository:
             target_uid = node_uid_by_temp_id.get(edge.target)
             if source_uid is None or target_uid is None:
                 continue
-            source_type = NodeType(
+            source_type = coerce_node_label(
                 next(
                     (
                         node.node_type
                         for node in projection.nodes
                         if node.temporary_id == edge.source
                     ),
-                    NodeType.CONCEPT.value,
+                    None,
                 )
             )
-            target_type = NodeType(
+            target_type = coerce_node_label(
                 next(
                     (
                         node.node_type
                         for node in projection.nodes
                         if node.temporary_id == edge.target
                     ),
-                    NodeType.CONCEPT.value,
+                    None,
                 )
             )
             edge_uid = self._edge_uid(
@@ -123,8 +123,9 @@ class AgeGraphRepository:
                 target_uid=target_uid,
                 source_type=source_type,
                 target_type=target_type,
-                relation=RelationType(edge.relation),
+                relation=coerce_relation(edge.relation),
                 source_memory_version_id=projection.memory_version_id,
+                claim_id=edge.claim_id,
                 confidence=projection.confidence,
                 valid_from=projection.valid_from,
             )
@@ -254,25 +255,25 @@ class AgeGraphRepository:
         *,
         uid: str,
         namespace_id: str,
-        node_type: NodeType | str,
+        node_type: str,
         canonical_name: str,
         normalized_name: str,
         aliases: list[str],
         created_at: datetime,
     ) -> None:
-        resolved_type = node_type if isinstance(node_type, NodeType) else NodeType(node_type)
+        label = coerce_node_label(node_type)
         existing = await self._cypher.run(
-            stmt.MATCH_NODE_BY_IDENTITY.format(label=stmt.node_label(resolved_type)),
+            stmt.MATCH_NODE_BY_IDENTITY.format(label=stmt.node_label(label)),
             {
                 "namespace_id": namespace_id,
-                "type": resolved_type.value,
+                "type": label,
                 "normalized_name": normalized_name,
             },
             columns=("n",),
         )
         if existing:
             await self._cypher.run(
-                stmt.UPDATE_NODE_ALIASES.format(label=stmt.node_label(resolved_type)),
+                stmt.UPDATE_NODE_ALIASES.format(label=stmt.node_label(label)),
                 {
                     "uid": uid,
                     "namespace_id": namespace_id,
@@ -282,11 +283,11 @@ class AgeGraphRepository:
             )
             return
         await self._cypher.run(
-            stmt.CREATE_NODE.format(label=stmt.node_label(resolved_type)),
+            stmt.CREATE_NODE.format(label=stmt.node_label(label)),
             {
                 "uid": uid,
                 "namespace_id": namespace_id,
-                "type": resolved_type.value,
+                "type": label,
                 "canonical_name": canonical_name,
                 "normalized_name": normalized_name,
                 "aliases": aliases,
@@ -302,10 +303,11 @@ class AgeGraphRepository:
         namespace_id: str,
         source_uid: str,
         target_uid: str,
-        source_type: NodeType,
-        target_type: NodeType,
-        relation,
+        source_type: str,
+        target_type: str,
+        relation: str,
         source_memory_version_id: str,
+        claim_id: str | None,
         confidence: float,
         valid_from: datetime,
     ) -> None:
@@ -320,8 +322,9 @@ class AgeGraphRepository:
                 "namespace_id": namespace_id,
                 "source_uid": source_uid,
                 "target_uid": target_uid,
-                "relation_name": relation.value,
+                "relation_name": relation,
                 "source_memory_version_id": source_memory_version_id,
+                "claim_id": claim_id,
                 "status": GraphEdgeStatus.ACTIVE.value,
                 "confidence": confidence,
                 "usefulness_score": 0.5,
@@ -364,7 +367,7 @@ class AgeGraphRepository:
         self,
         *,
         namespace_id: str,
-        node_type: NodeType | str,
+        node_type: str,
         name: str,
     ) -> str:
         return (

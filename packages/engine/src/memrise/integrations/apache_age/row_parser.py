@@ -6,7 +6,7 @@ from typing import Any
 from memrise.core.enums import GraphEdgeStatus
 from memrise.core.graph import GraphEdge, GraphNode, GraphPath
 from memrise.core.time import utc_now
-from memrise.graph.ontology import NodeType, RelationType, ensure_allowed_relation
+from memrise.graph.types import RelationType, coerce_relation
 
 _AGTYPE_SUFFIX = re.compile(r"::(vertex|edge|path|agtype)$")
 
@@ -30,8 +30,8 @@ def parse_vertex(value: Any) -> GraphNode | None:
     node_type_raw = properties.get("type")
     if node_type_raw is None:
         return None
-    node_type = str(node_type_raw)
-    if node_type not in {item.value for item in NodeType}:
+    node_type = str(node_type_raw).strip()
+    if not node_type:
         return None
     uid = str(properties.get("uid", ""))
     namespace_id = str(properties.get("namespace_id", ""))
@@ -60,9 +60,7 @@ def parse_edge(value: Any) -> GraphEdge | None:
     memory_version_id = str(properties.get("source_memory_version_id", ""))
     if not uid or not namespace_id or not source_uid or not target_uid or not memory_version_id:
         return None
-    relation = ensure_allowed_relation(
-        str(properties.get("relation", RelationType.RELATED_TO.value))
-    ).value
+    relation = coerce_relation(str(properties.get("relation", RelationType.RELATED_TO.value)))
     status = GraphEdgeStatus(str(properties.get("status", GraphEdgeStatus.ACTIVE.value)))
     return GraphEdge(
         uid=uid,
