@@ -5,6 +5,7 @@ from openai import AsyncOpenAI, AuthenticationError
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import ValidationError
 
+from memrise.graph.schema import GraphSchemaPack
 from memrise.integrations.qwen.errors import QwenProviderError
 from memrise.ports.providers import (
     CompletionProvider,
@@ -46,7 +47,10 @@ class QwenCompletionProvider(CompletionProvider):
             },
             {
                 "role": "user",
-                "content": json.dumps({"text": text, "context": context}, ensure_ascii=False),
+                "content": json.dumps(
+                    {"text": text, "context": _enrich_context(context)},
+                    ensure_ascii=False,
+                ),
             },
         ]
         for _ in range(self._settings.qwen_max_retries + 1):
@@ -100,6 +104,29 @@ def _client_from_settings(settings: MemorySettings) -> AsyncOpenAI | None:
         timeout=settings.qwen_timeout_seconds,
         max_retries=settings.qwen_max_retries,
     )
+
+
+def _enrich_context(context: dict[str, object]) -> dict[str, object]:
+    packs = context.get("active_schema_packs")
+    if isinstance(packs, list):
+        return context
+    return context
+
+
+def schema_pack_context(packs: list[GraphSchemaPack]) -> list[dict[str, object]]:
+    return [
+        {
+            "domain": pack.domain,
+            "version": pack.version,
+            "node_types": list(pack.node_types),
+            "relationship_patterns": [
+                {"source": pattern.source, "type": pattern.type, "target": pattern.target}
+                for pattern in pack.relationship_patterns
+            ],
+            "type_aliases": pack.type_aliases,
+        }
+        for pack in packs
+    ]
 
 
 def _require_client(client: AsyncOpenAI | None) -> AsyncOpenAI:

@@ -83,7 +83,10 @@ Candidate rules:
   ontology labels: Person, Project, Organization, Technology, Component,
   Concept, Task.
 - Use only these graph relations: WORKS_ON, USES, DEPENDS_ON, PREFERS,
-  BELONGS_TO, REPLACED, CAUSED, BLOCKED_BY, DEPLOYS_ON, RELATED_TO.
+  BELONGS_TO, REPLACED, CAUSED, BLOCKED_BY, DEPLOYS_ON, OWNS, AFFECTS,
+  RELATED_TO.
+- The runtime may also provide active schema packs in `context.active_schema_packs`.
+  When present, prefer those node types and relationship patterns.
 - Optional `applicability.graph_entity_types` can map entity names to node
   types when a memory mentions several entities.
 - Avoid explanatory text, markdown, or thinking output. JSON only.
