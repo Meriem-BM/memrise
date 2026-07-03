@@ -6,8 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from tests.mocks.memory_store import MemoryStoreStub
 
-from memrise.integrations.postgres.repositories import PostgresMemoryStore
-from memrise.integrations.postgres.session import make_session_factory
+from memrise.integrations.postgres import PostgresMemoryStore, make_session_factory
 from memrise.ports.repositories import MemoryStore
 from memrise.runtime.ids import UuidGenerator
 

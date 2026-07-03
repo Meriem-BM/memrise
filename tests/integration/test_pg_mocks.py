@@ -13,9 +13,11 @@ from tests.mocks.providers import (
 from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.core.enums import Criticality, EpisodeKind, MemoryStatus, MemoryType
 from memrise.core.models import Scope
-from memrise.integrations.postgres.job_queue import PostgresJobQueue
-from memrise.integrations.postgres.repositories import PostgresMemoryStore
-from memrise.integrations.postgres.session import make_session_factory
+from memrise.integrations.postgres import (
+    PostgresJobQueue,
+    PostgresMemoryStore,
+    make_session_factory,
+)
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.ports.providers import ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator

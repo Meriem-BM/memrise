@@ -1,8 +1,10 @@
 from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.integrations.apache_age.repository import AgeGraphRepository
-from memrise.integrations.postgres.job_queue import PostgresJobQueue
-from memrise.integrations.postgres.repositories import PostgresMemoryStore
-from memrise.integrations.postgres.session import make_session_factory
+from memrise.integrations.postgres import (
+    PostgresJobQueue,
+    PostgresMemoryStore,
+    make_session_factory,
+)
 from memrise.integrations.qwen.providers import QwenCompletionProvider, QwenEmbeddingProvider
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.runtime.ids import UuidGenerator

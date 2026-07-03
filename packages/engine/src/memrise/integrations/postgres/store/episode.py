@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from memrise.core.errors import IdempotencyConflictError
 from memrise.core.models import Episode, EpisodeSaveOutcome
-from memrise.integrations.postgres.mappers import episode_from_row
-from memrise.integrations.postgres.models import EpisodeRow
+from memrise.integrations.postgres.schema.mappers import episode_from_row
+from memrise.integrations.postgres.schema.models import EpisodeRow
 from memrise.integrations.postgres.session import session_scope
 
 

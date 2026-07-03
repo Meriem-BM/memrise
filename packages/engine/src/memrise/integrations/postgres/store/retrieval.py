@@ -2,11 +2,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from memrise.core.models import Feedback, RetrievalItem, RetrievalTrace
-from memrise.integrations.postgres.mappers import (
+from memrise.integrations.postgres.schema.mappers import (
     retrieval_item_from_row,
     retrieval_trace_from_row,
 )
-from memrise.integrations.postgres.models import (
+from memrise.integrations.postgres.schema.models import (
     MemoryVersionRow,
     RetrievalFeedbackRow,
     RetrievalItemRow,

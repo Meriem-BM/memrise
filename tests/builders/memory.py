@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from memrise.core.enums import Criticality, EpisodeKind, MemoryStatus, MemoryType
 from memrise.core.models import Episode, Scope
 from memrise.core.time import utc_now
-from memrise.integrations.postgres.models import MemoryVersionRow
+from memrise.integrations.postgres.schema.models import MemoryVersionRow
 from memrise.integrations.postgres.session import session_scope
 from memrise.ports.providers import ExtractedMemoryCandidate
 

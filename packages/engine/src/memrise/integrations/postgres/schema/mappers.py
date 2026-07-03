@@ -18,7 +18,7 @@ from memrise.core.models import (
     RetrievalItem,
     RetrievalTrace,
 )
-from memrise.integrations.postgres.models import (
+from memrise.integrations.postgres.schema.models import (
     EpisodeRow,
     JobRow,
     MemoryCandidateRow,

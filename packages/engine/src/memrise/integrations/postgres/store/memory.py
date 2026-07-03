@@ -10,19 +10,19 @@ from memrise.core.models import (
 )
 from memrise.core.text import normalize_lookup
 from memrise.core.time import utc_now
-from memrise.integrations.postgres.mappers import canonical_from_rows
-from memrise.integrations.postgres.memory_queries import (
-    find_current_memory_in_session,
-    find_latest_memory_in_session,
-    find_matching_historical_memory_in_session,
-    lock_logical_memory_in_session,
-)
-from memrise.integrations.postgres.models import (
+from memrise.integrations.postgres.schema.mappers import canonical_from_rows
+from memrise.integrations.postgres.schema.models import (
     MemoryRow,
     MemorySourceRow,
     MemoryVersionRow,
 )
 from memrise.integrations.postgres.session import session_scope
+from memrise.integrations.postgres.store.queries import (
+    find_current_memory_in_session,
+    find_latest_memory_in_session,
+    find_matching_historical_memory_in_session,
+    lock_logical_memory_in_session,
+)
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.reconciliation import candidate_has_explicit_change, same_memory_value
 from memrise.ports.providers import ExtractedMemoryCandidate

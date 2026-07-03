@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from memrise.core.enums import JobStatus, JobType, MemoryStatus
 from memrise.core.models import CanonicalMemory
 from memrise.core.time import utc_now
-from memrise.integrations.postgres.models import GraphProjectionJobRow, JobRow
+from memrise.integrations.postgres.schema.models import GraphProjectionJobRow, JobRow
 from memrise.integrations.postgres.session import session_scope
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import ExtractedGraphRelation

@@ -13,13 +13,11 @@ from memrise.core.models import (
     RetrievalTrace,
     Scope,
 )
-from memrise.integrations.postgres.candidate_repository import PostgresCandidateRepository
-from memrise.integrations.postgres.episode_repository import PostgresEpisodeRepository
-from memrise.integrations.postgres.graph_projection_repository import (
-    PostgresGraphProjectionRepository,
-)
-from memrise.integrations.postgres.memory_repository import PostgresMemoryRepository
-from memrise.integrations.postgres.retrieval_repository import PostgresRetrievalRepository
+from memrise.integrations.postgres.store.candidate import PostgresCandidateRepository
+from memrise.integrations.postgres.store.episode import PostgresEpisodeRepository
+from memrise.integrations.postgres.store.graph_projection import PostgresGraphProjectionRepository
+from memrise.integrations.postgres.store.memory import PostgresMemoryRepository
+from memrise.integrations.postgres.store.retrieval import PostgresRetrievalRepository
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import Reconciler

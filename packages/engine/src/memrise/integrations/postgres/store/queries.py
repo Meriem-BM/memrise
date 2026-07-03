@@ -5,8 +5,8 @@ from memrise.core.enums import MemoryStatus
 from memrise.core.models import CanonicalMemory, Scope
 from memrise.core.text import normalize_lookup
 from memrise.core.time import utc_now
-from memrise.integrations.postgres.mappers import canonical_from_rows
-from memrise.integrations.postgres.models import MemoryRow, MemoryVersionRow
+from memrise.integrations.postgres.schema.mappers import canonical_from_rows
+from memrise.integrations.postgres.schema.models import MemoryRow, MemoryVersionRow
 from memrise.learning.reconciliation import same_memory_value
 from memrise.ports.providers import ExtractedMemoryCandidate
 

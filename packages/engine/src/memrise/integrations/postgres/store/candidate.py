@@ -8,8 +8,8 @@ from memrise.core.enums import CandidateStageStatus
 from memrise.core.errors import CandidateStageNotFoundError
 from memrise.core.models import MemoryCandidateStage
 from memrise.core.time import utc_now
-from memrise.integrations.postgres.mappers import candidate_stage_from_row
-from memrise.integrations.postgres.models import MemoryCandidateRow
+from memrise.integrations.postgres.schema.mappers import candidate_stage_from_row
+from memrise.integrations.postgres.schema.models import MemoryCandidateRow
 from memrise.integrations.postgres.session import session_scope
 
 
