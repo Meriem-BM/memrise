@@ -66,6 +66,7 @@ def make_memory(
     valid_until: datetime | None = None,
     supersedes_version_id: str | None = None,
     superseded_by_version_id: str | None = None,
+    embedding: list[float] | None = None,
 ) -> CanonicalMemory:
     now = _utc_now()
     identity = MemoryIdentity(
@@ -95,6 +96,7 @@ def make_memory(
         valid_until=valid_until,
         supersedes_version_id=supersedes_version_id,
         superseded_by_version_id=superseded_by_version_id,
+        embedding=embedding,
         created_at=now,
     )
     return CanonicalMemory(identity=identity, version=version)

@@ -3,7 +3,7 @@ from tests.mocks.graph_repository import GraphRepositoryStub
 from tests.mocks.memory_store import MemoryStoreStub, make_memory
 from tests.mocks.providers import MockEmbeddingProvider
 
-from memrise.core.enums import RetrievalSourceType
+from memrise.core.enums import MemoryStatus, RetrievalSourceType
 from memrise.core.models import Scope
 from memrise.read.retrieval import (
     RetrievalCandidate,
@@ -86,3 +86,40 @@ async def test_retrieval_service_persists_trace_and_context() -> None:
     assert used_tokens > 0
     assert retrieval_id in store.retrieval_traces
     assert store.retrieval_items[retrieval_id]
+
+
+async def test_contested_memories_surface_with_rank_penalty() -> None:
+    active = make_memory(
+        memory_id="mem_active",
+        version_id="memv_active",
+        content="Atlas uses pnpm for dependencies.",
+    )
+    contested = make_memory(
+        memory_id="mem_contested",
+        version_id="memv_contested",
+        key="package_manager_alt",
+        content="Atlas uses pnpm for dependencies.",
+        status=MemoryStatus.CONTESTED,
+    )
+    store = MemoryStoreStub(memories=[active, contested])
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    _, _, memories, _, _ = await service.retrieve(
+        scope=scope,
+        query="Atlas pnpm dependencies",
+        task_type=None,
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+
+    version_ids = [memory.version.id for memory in memories]
+    assert "memv_contested" in version_ids
+    assert version_ids.index("memv_active") < version_ids.index("memv_contested")

@@ -1,7 +1,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from math import sqrt
 
+from memrise.core.embeddings import cosine_similarity
 from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
 from memrise.core.models import CanonicalMemory, RetrievalItem, RetrievalTrace, Scope
@@ -14,6 +14,8 @@ from memrise.ports.providers import EmbeddingProvider, TokenCounter
 from memrise.ports.repositories import MemoryStore
 
 RRF_K = 60
+# Contested memories stay retrievable but rank below equally scored active ones.
+CONTESTED_RANK_PENALTY = 0.04
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,17 +53,6 @@ def lexical_score(query: str, memory: CanonicalMemory) -> float:
 
 def structured_score(query: str, memory: CanonicalMemory) -> float:
     return _term_overlap(query, f"{memory.identity.subject} {memory.identity.key}")
-
-
-def cosine_similarity(a: list[float], b: list[float]) -> float:
-    if not a or not b or len(a) != len(b):
-        return 0.0
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    norm_a = sqrt(sum(x * x for x in a))
-    norm_b = sqrt(sum(y * y for y in b))
-    if norm_a == 0.0 or norm_b == 0.0:
-        return 0.0
-    return dot / (norm_a * norm_b)
 
 
 def scope_specificity(memory: CanonicalMemory) -> float:
@@ -135,7 +126,7 @@ class RetrievalService:
         limit: int,
         graph_hops: int,
     ) -> tuple[str, list[CanonicalMemory], list[CanonicalMemory], str, int]:
-        memories = await self._store.list_active_memories(scope=scope, include_contested=False)
+        memories = await self._store.list_active_memories(scope=scope, include_contested=True)
         applicable = [memory for memory in memories if self._is_applicable(memory)]
         memory_by_version_id = {memory.version.id: memory for memory in applicable}
         critical = self._select_critical(applicable, query, token_budget)
@@ -182,6 +173,11 @@ class RetrievalService:
                 + memory.version.usefulness_score * 0.12
                 + memory.version.confidence * 0.08
                 + scope_specificity(memory)
+                - (
+                    CONTESTED_RANK_PENALTY
+                    if memory.version.status == MemoryStatus.CONTESTED
+                    else 0.0
+                )
             ),
             reverse=True,
         )
@@ -302,7 +298,7 @@ class RetrievalService:
     def _is_applicable(self, memory: CanonicalMemory) -> bool:
         version = memory.version
         now = utc_now()
-        if version.status != MemoryStatus.ACTIVE:
+        if version.status not in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED):
             return False
         if version.valid_from > now:
             return False
