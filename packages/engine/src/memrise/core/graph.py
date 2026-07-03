@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from memrise.core.enums import GraphEdgeStatus
+from memrise.core.enums import GraphClaimStatus, GraphEdgeStatus
 from memrise.core.time import require_utc
 
 
@@ -58,10 +58,71 @@ class GraphNodeCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class GraphEntity:
+    id: str
+    namespace_id: str
+    core_type: str
+    domain_type: str | None
+    canonical_name: str
+    normalized_name: str
+    aliases: tuple[str, ...] = ()
+    stable_source_id: str | None = None
+    user_id: str | None = None
+    project_id: str | None = None
+    created_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        if self.created_at is not None:
+            require_utc(self.created_at)
+
+
+@dataclass(frozen=True, slots=True)
+class GraphClaim:
+    id: str
+    namespace_id: str
+    subject_entity_id: str
+    predicate: str
+    object_entity_id: str
+    supporting_memory_version_id: str
+    evidence_text: str | None
+    confidence: float
+    status: GraphClaimStatus
+    valid_from: datetime
+    valid_until: datetime | None
+    superseded_by_claim_id: str | None
+    schema_version: str
+    extractor_version: str | None
+    extracted_at: datetime
+
+    def __post_init__(self) -> None:
+        require_utc(self.valid_from)
+        require_utc(self.extracted_at)
+        if self.valid_until is not None:
+            require_utc(self.valid_until)
+
+
+@dataclass(frozen=True, slots=True)
+class GraphClaimPersistenceResult:
+    memory_version_id: str
+    namespace_id: str
+    entities: tuple[GraphEntity, ...]
+    claims: tuple[GraphClaim, ...]
+    superseded_claim_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class GraphRebuildResult:
+    namespace_id: str
+    projected_memory_version_count: int
+    projected_claim_count: int
+
+
+@dataclass(frozen=True, slots=True)
 class GraphEdgeCandidate:
     source: str
     relation: str
     target: str
+    claim_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

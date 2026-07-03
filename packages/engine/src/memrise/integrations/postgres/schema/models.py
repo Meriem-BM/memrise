@@ -334,6 +334,134 @@ class ModelInvocationRow(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class GraphEntityRow(Base):
+    __tablename__ = "graph_entities"
+    __table_args__ = (
+        UniqueConstraint(
+            "namespace_id",
+            "core_type",
+            "normalized_name",
+            name="uq_graph_entities_identity",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    core_type: Mapped[str] = mapped_column(String(64))
+    domain_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    canonical_name: Mapped[str] = mapped_column(String(512))
+    normalized_name: Mapped[str] = mapped_column(String(512))
+    aliases: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    stable_source_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    user_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GraphClaimRow(Base):
+    __tablename__ = "graph_claims"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('active','superseded','contradicted','deprecated','expired','rejected')",
+            name="ck_graph_claims_status",
+        ),
+        UniqueConstraint(
+            "subject_entity_id",
+            "predicate",
+            "object_entity_id",
+            "supporting_memory_version_id",
+            name="uq_graph_claims_identity",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    subject_entity_id: Mapped[str] = mapped_column(
+        ForeignKey("graph_entities.id"),
+    )
+    predicate: Mapped[str] = mapped_column(String(64))
+    object_entity_id: Mapped[str] = mapped_column(
+        ForeignKey("graph_entities.id"),
+    )
+    supporting_memory_version_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_versions.id", ondelete="CASCADE"),
+        index=True,
+    )
+    evidence_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    confidence: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    superseded_by_claim_id: Mapped[str | None] = mapped_column(
+        ForeignKey("graph_claims.id"),
+        nullable=True,
+    )
+    schema_version: Mapped[str] = mapped_column(String(64), default="core@1.0")
+    extractor_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GraphSchemaPackRow(Base):
+    __tablename__ = "graph_schema_packs"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('proposed','active','deprecated')",
+            name="ck_graph_schema_packs_status",
+        ),
+        UniqueConstraint(
+            "namespace_id",
+            "project_id",
+            "domain",
+            "version",
+            name="uq_graph_schema_packs_scope",
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    project_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    domain: Mapped[str] = mapped_column(String(128))
+    version: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    definition: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class GraphSchemaCandidateRow(Base):
+    __tablename__ = "graph_schema_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "candidate_kind in ('node_type','relation_type')",
+            name="ck_graph_schema_candidates_kind",
+        ),
+        CheckConstraint(
+            "status in ('proposed','accepted','rejected')",
+            name="ck_graph_schema_candidates_status",
+        ),
+        UniqueConstraint(
+            "namespace_id",
+            "domain",
+            "candidate_type",
+            "candidate_kind",
+            name="uq_graph_schema_candidates_identity",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    domain: Mapped[str] = mapped_column(String(128))
+    candidate_type: Mapped[str] = mapped_column(String(128))
+    candidate_kind: Mapped[str] = mapped_column(String(32))
+    fallback_type: Mapped[str] = mapped_column(String(128))
+    occurrence_count: Mapped[int] = mapped_column(Integer, default=1)
+    example_context: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String(32), default="proposed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class GraphProjectionJobRow(Base):
     __tablename__ = "graph_projection_jobs"
     __table_args__ = (

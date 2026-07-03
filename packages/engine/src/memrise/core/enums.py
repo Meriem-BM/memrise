@@ -58,6 +58,15 @@ class GraphEdgeStatus(StrEnum):
     DELETED = "deleted"
 
 
+class GraphClaimStatus(StrEnum):
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+    CONTRADICTED = "contradicted"
+    DEPRECATED = "deprecated"
+    EXPIRED = "expired"
+    REJECTED = "rejected"
+
+
 class RetrievalSourceType(StrEnum):
     CRITICAL = "critical"
     STRUCTURED = "structured"
@@ -86,6 +95,7 @@ class JobType(StrEnum):
     EXPIRE_MEMORIES = "expire_memories"
     PROCESS_FEEDBACK = "process_feedback"
     PROJECT_GRAPH = "project_graph"
+    REBUILD_GRAPH = "rebuild_graph"
 
 
 class JobStatus(StrEnum):
