@@ -45,6 +45,7 @@ class PostgresGraphProjectionRepository:
                         "memory_version_id": memory.version.id,
                         "namespace_id": memory.identity.namespace_id,
                         "relations": [relation.model_dump() for relation in relations],
+                        "extractor_version": "memory_extraction_v1",
                     },
                     status=JobStatus.PENDING.value,
                     attempts=0,
