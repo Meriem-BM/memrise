@@ -7,6 +7,7 @@ from memrise.core.text import normalize_lookup
 from memrise.core.time import utc_now
 from memrise.integrations.postgres.schema.mappers import canonical_from_rows
 from memrise.integrations.postgres.schema.models import MemoryRow, MemoryVersionRow
+from memrise.learning.apply import SEMANTIC_EQUIVALENCE_THRESHOLD
 from memrise.learning.reconciliation import same_memory_value
 from memrise.ports.providers import ExtractedMemoryCandidate
 
@@ -138,6 +139,56 @@ async def find_latest_memory_in_session(
                 MemoryRow.normalized_key == normalize_lookup(key),
             )
             .order_by(MemoryVersionRow.version_number.desc())
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+    return canonical_from_rows(row[0], row[1])
+
+
+async def find_semantic_duplicate_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    subject: str,
+    exclude_key: str,
+    embedding: list[float],
+) -> CanonicalMemory | None:
+    """Find a live same-subject memory under a different key that says the same thing.
+
+    Guards against LLM key instability creating duplicates ("package_manager" vs
+    "preferred_package_manager"): a near-identical candidate is routed into
+    reconciliation against the match instead of being added as a new memory.
+    """
+    if not embedding:
+        return None
+    now = utc_now()
+    distance = MemoryVersionRow.embedding.cosine_distance(embedding)
+    row = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow)
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                MemoryRow.namespace_id == scope.namespace_id,
+                MemoryRow.agent_id == scope.agent_id,
+                MemoryRow.user_id.is_(scope.user_id)
+                if scope.user_id is None
+                else MemoryRow.user_id == scope.user_id,
+                MemoryRow.project_id.is_(scope.project_id)
+                if scope.project_id is None
+                else MemoryRow.project_id == scope.project_id,
+                MemoryRow.normalized_subject == normalize_lookup(subject),
+                MemoryRow.normalized_key != normalize_lookup(exclude_key),
+                MemoryVersionRow.status.in_(
+                    [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                ),
+                MemoryVersionRow.valid_from <= now,
+                or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
+                MemoryVersionRow.embedding.is_not(None),
+                distance <= 1.0 - SEMANTIC_EQUIVALENCE_THRESHOLD,
+            )
+            .order_by(distance)
             .limit(1)
         )
     ).first()

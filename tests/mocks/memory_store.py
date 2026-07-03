@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
+from memrise.core.embeddings import cosine_similarity
 from memrise.core.enums import (
     CandidateStageStatus,
     Criticality,
@@ -27,7 +28,7 @@ from memrise.core.models import (
     Scope,
 )
 from memrise.core.text import normalize_lookup
-from memrise.learning.apply import MemoryApplyService
+from memrise.learning.apply import SEMANTIC_EQUIVALENCE_THRESHOLD, MemoryApplyService
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import (
     Reconciler,
@@ -224,6 +225,41 @@ class MemoryStoreStub:
                 return memory
         return None
 
+    def _find_semantic_duplicate(
+        self,
+        *,
+        scope: Scope,
+        candidate: ExtractedMemoryCandidate,
+        embedding: list[float],
+    ) -> CanonicalMemory | None:
+        if not embedding:
+            return None
+        best: CanonicalMemory | None = None
+        best_similarity = SEMANTIC_EQUIVALENCE_THRESHOLD
+        for memory in self.memories:
+            identity = memory.identity
+            version = memory.version
+            if (
+                identity.namespace_id != scope.namespace_id
+                or identity.agent_id != scope.agent_id
+                or identity.user_id != scope.user_id
+                or identity.project_id != scope.project_id
+            ):
+                continue
+            if normalize_lookup(identity.subject) != normalize_lookup(candidate.subject):
+                continue
+            if normalize_lookup(identity.key) == normalize_lookup(candidate.key):
+                continue
+            if version.status not in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED):
+                continue
+            if version.embedding is None:
+                continue
+            similarity = cosine_similarity(embedding, version.embedding)
+            if similarity >= best_similarity:
+                best = memory
+                best_similarity = similarity
+        return best
+
     async def _find_latest_memory(
         self,
         *,
@@ -294,6 +330,12 @@ class MemoryStoreStub:
             )
             if historical_duplicate is not None:
                 return ApplyCandidateOutcome(skip_reason="reconcile:historical_duplicate")
+        if existing is None:
+            existing = self._find_semantic_duplicate(
+                scope=scope,
+                candidate=candidate,
+                embedding=embedding,
+            )
         if existing is None:
             existing = await self._find_latest_memory(
                 scope=scope,

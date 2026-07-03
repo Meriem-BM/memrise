@@ -21,6 +21,7 @@ from memrise.integrations.postgres.store.queries import (
     find_current_memory_in_session,
     find_latest_memory_in_session,
     find_matching_historical_memory_in_session,
+    find_semantic_duplicate_in_session,
     lock_logical_memory_in_session,
 )
 from memrise.learning.apply import MemoryApplyService
@@ -166,6 +167,14 @@ class PostgresMemoryRepository:
                     return ApplyCandidateOutcome(
                         skip_reason="reconcile:historical_duplicate",
                     )
+            if existing is None:
+                existing = await find_semantic_duplicate_in_session(
+                    session,
+                    scope=scope,
+                    subject=candidate.subject,
+                    exclude_key=candidate.key,
+                    embedding=embedding,
+                )
             if existing is None:
                 existing = await find_latest_memory_in_session(
                     session,

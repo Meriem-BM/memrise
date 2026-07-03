@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from tests.mocks.memory_store import MemoryStoreStub
+from tests.mocks.memory_store import MemoryStoreStub, make_memory
 from tests.mocks.providers import (
     MockCompletionProvider,
     MockEmbeddingProvider,
@@ -9,7 +9,7 @@ from tests.mocks.providers import (
 )
 
 from memrise.core.enums import CandidateStageStatus, Criticality, EpisodeKind, JobType, MemoryType
-from memrise.core.models import BackgroundJob, Episode
+from memrise.core.models import BackgroundJob, Episode, Scope
 from memrise.ports.providers import ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
 from memrise.write.importance import ImportanceGate
@@ -142,3 +142,67 @@ async def test_extract_episode_retry_skips_llm_when_stages_exist() -> None:
     assert second.created_memory_version_ids == first.created_memory_version_ids
     stage = next(iter(store.candidate_stages.values()))
     assert stage.status == CandidateStageStatus.PROMOTED
+
+
+async def test_apply_candidate_reinforces_semantic_duplicate_under_different_key() -> None:
+    existing = make_memory(
+        memory_id="mem_pm",
+        version_id="memv_pm",
+        key="package_manager",
+        content="Atlas uses pnpm as the package manager.",
+        embedding=[1.0, 0.0, 0.0],
+    )
+    store = MemoryStoreStub(memories=[existing])
+    candidate = ExtractedMemoryCandidate(
+        type=MemoryType.DECISION,
+        subject="Atlas",
+        key="preferred_package_manager",
+        content="pnpm is the preferred package manager for Atlas.",
+        confidence=0.9,
+        importance=0.8,
+        criticality=Criticality.NORMAL,
+        evidence_quote="pnpm is the preferred package manager for Atlas.",
+    )
+
+    outcome = await store.apply_candidate(
+        scope=Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas"),
+        candidate=candidate,
+        source_episode_ids=["ep_1"],
+        embedding=[1.0, 0.0, 0.05],
+    )
+
+    assert outcome.memory is not None
+    assert outcome.memory.identity.id == "mem_pm"
+    assert len({memory.identity.id for memory in store.memories}) == 1
+
+
+async def test_apply_candidate_adds_new_memory_when_not_semantically_similar() -> None:
+    existing = make_memory(
+        memory_id="mem_pm",
+        version_id="memv_pm",
+        key="package_manager",
+        content="Atlas uses pnpm as the package manager.",
+        embedding=[1.0, 0.0, 0.0],
+    )
+    store = MemoryStoreStub(memories=[existing])
+    candidate = ExtractedMemoryCandidate(
+        type=MemoryType.FACT,
+        subject="Atlas",
+        key="deploy_day",
+        content="Atlas deploys on Fridays.",
+        confidence=0.9,
+        importance=0.8,
+        criticality=Criticality.NORMAL,
+        evidence_quote="Atlas deploys on Fridays.",
+    )
+
+    outcome = await store.apply_candidate(
+        scope=Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas"),
+        candidate=candidate,
+        source_episode_ids=["ep_1"],
+        embedding=[0.0, 1.0, 0.0],
+    )
+
+    assert outcome.memory is not None
+    assert outcome.memory.identity.id != "mem_pm"
+    assert len({memory.identity.id for memory in store.memories}) == 2
