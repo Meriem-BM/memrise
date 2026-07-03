@@ -10,7 +10,7 @@ from tests.mocks.providers import (
 
 from memrise.core.enums import CandidateStageStatus, Criticality, EpisodeKind, JobType, MemoryType
 from memrise.core.models import BackgroundJob, Episode, Scope
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
 from memrise.write.importance import ImportanceGate
 from memrise.write.service import WriteService
@@ -168,7 +168,7 @@ async def test_apply_candidate_reinforces_semantic_duplicate_under_different_key
         scope=Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas"),
         candidate=candidate,
         source_episode_ids=["ep_1"],
-        embedding=[1.0, 0.0, 0.05],
+        embedding=EmbeddingVector(values=[1.0, 0.0, 0.05], model="mock-embedding", dimensions=3),
     )
 
     assert outcome.memory is not None
@@ -200,7 +200,7 @@ async def test_apply_candidate_adds_new_memory_when_not_semantically_similar() -
         scope=Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas"),
         candidate=candidate,
         source_episode_ids=["ep_1"],
-        embedding=[0.0, 1.0, 0.0],
+        embedding=EmbeddingVector(values=[0.0, 1.0, 0.0], model="mock-embedding", dimensions=3),
     )
 
     assert outcome.memory is not None

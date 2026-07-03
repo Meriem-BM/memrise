@@ -23,10 +23,13 @@ from memrise.integrations.postgres.store.queries import (
     find_matching_historical_memory_in_session,
     find_semantic_duplicate_in_session,
     lock_logical_memory_in_session,
+    search_lexical_in_session,
+    search_semantic_in_session,
 )
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.reconciliation import candidate_has_explicit_change, same_memory_value
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
+from memrise.write.extraction_validation import embedding_text_for_candidate
 
 
 class PostgresMemoryRepository:
@@ -73,6 +76,28 @@ class PostgresMemoryRepository:
                 )
             ).all()
             return [canonical_from_rows(memory, version) for memory, version in rows]
+
+    async def search_lexical(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        async with self._session_factory() as session:
+            return await search_lexical_in_session(session, scope=scope, query=query, limit=limit)
+
+    async def search_semantic(
+        self,
+        *,
+        scope: Scope,
+        embedding: EmbeddingVector,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        async with self._session_factory() as session:
+            return await search_semantic_in_session(
+                session, scope=scope, embedding=embedding, limit=limit
+            )
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:
         async with self._session_factory() as session:
@@ -136,7 +161,7 @@ class PostgresMemoryRepository:
         scope: Scope,
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
-        embedding: list[float],
+        embedding: EmbeddingVector,
     ) -> ApplyCandidateOutcome:
         now = utc_now()
         async with session_scope(self._session_factory) as session:
@@ -279,7 +304,11 @@ class PostgresMemoryRepository:
                 valid_from=now,
                 valid_until=new_version.valid_until,
                 supersedes_version_id=new_version.supersedes_version_id,
-                embedding=embedding,
+                embedding=embedding.values,
+                embedding_model=embedding.model,
+                embedding_dimensions=embedding.dimensions,
+                embedding_text=embedding_text_for_candidate(new_version.candidate),
+                search_text=new_version.candidate.search_text,
                 created_at=now,
                 updated_at=now,
             )

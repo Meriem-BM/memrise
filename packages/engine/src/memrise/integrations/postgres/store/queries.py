@@ -1,4 +1,4 @@
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from memrise.core.enums import MemoryStatus
@@ -9,7 +9,7 @@ from memrise.integrations.postgres.schema.mappers import canonical_from_rows
 from memrise.integrations.postgres.schema.models import MemoryRow, MemoryVersionRow
 from memrise.learning.apply import SEMANTIC_EQUIVALENCE_THRESHOLD
 from memrise.learning.reconciliation import same_memory_value
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 
 
 async def find_current_memory_in_session(
@@ -153,7 +153,7 @@ async def find_semantic_duplicate_in_session(
     scope: Scope,
     subject: str,
     exclude_key: str,
-    embedding: list[float],
+    embedding: EmbeddingVector,
 ) -> CanonicalMemory | None:
     """Find a live same-subject memory under a different key that says the same thing.
 
@@ -161,10 +161,10 @@ async def find_semantic_duplicate_in_session(
     "preferred_package_manager"): a near-identical candidate is routed into
     reconciliation against the match instead of being added as a new memory.
     """
-    if not embedding:
+    if not embedding.values:
         return None
     now = utc_now()
-    distance = MemoryVersionRow.embedding.cosine_distance(embedding)
+    distance = MemoryVersionRow.embedding.cosine_distance(embedding.values)
     row = (
         await session.execute(
             select(MemoryRow, MemoryVersionRow)
@@ -186,6 +186,10 @@ async def find_semantic_duplicate_in_session(
                 MemoryVersionRow.valid_from <= now,
                 or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
                 MemoryVersionRow.embedding.is_not(None),
+                or_(
+                    MemoryVersionRow.embedding_model.is_(None),
+                    MemoryVersionRow.embedding_model == embedding.model,
+                ),
                 distance <= 1.0 - SEMANTIC_EQUIVALENCE_THRESHOLD,
             )
             .order_by(distance)
@@ -195,3 +199,73 @@ async def find_semantic_duplicate_in_session(
     if row is None:
         return None
     return canonical_from_rows(row[0], row[1])
+
+
+def _live_scope_filters(scope: Scope) -> list:
+    """Filters shared by retrieval channels: live versions visible to the scope."""
+    now = utc_now()
+    return [
+        MemoryRow.namespace_id == scope.namespace_id,
+        MemoryRow.agent_id == scope.agent_id,
+        or_(MemoryRow.user_id.is_(None), MemoryRow.user_id == scope.user_id),
+        or_(MemoryRow.project_id.is_(None), MemoryRow.project_id == scope.project_id),
+        MemoryVersionRow.status.in_([MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]),
+        MemoryVersionRow.valid_from <= now,
+        or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
+    ]
+
+
+async def search_lexical_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    query: str,
+    limit: int,
+) -> list[tuple[CanonicalMemory, float]]:
+    tsquery = func.websearch_to_tsquery("english", query)
+    rank = func.ts_rank(MemoryVersionRow.search_document, tsquery)
+    rows = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow, rank.label("rank"))
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                *_live_scope_filters(scope),
+                MemoryVersionRow.search_document.op("@@")(tsquery),
+            )
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+    ).all()
+    return [(canonical_from_rows(memory, version), float(score)) for memory, version, score in rows]
+
+
+async def search_semantic_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    embedding: EmbeddingVector,
+    limit: int,
+) -> list[tuple[CanonicalMemory, float]]:
+    if not embedding.values:
+        return []
+    distance = MemoryVersionRow.embedding.cosine_distance(embedding.values)
+    rows = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow, distance.label("distance"))
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                *_live_scope_filters(scope),
+                MemoryVersionRow.embedding.is_not(None),
+                or_(
+                    MemoryVersionRow.embedding_model.is_(None),
+                    MemoryVersionRow.embedding_model == embedding.model,
+                ),
+            )
+            .order_by(distance)
+            .limit(limit)
+        )
+    ).all()
+    return [
+        (canonical_from_rows(memory, version), max(0.0, 1.0 - float(dist)))
+        for memory, version, dist in rows
+    ]

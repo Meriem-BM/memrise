@@ -19,7 +19,7 @@ from memrise.integrations.postgres import (
     make_session_factory,
 )
 from memrise.learning.policy import DefaultFeedbackPolicy
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
 from memrise.runtime.memory import Memrise
 from memrise.runtime.token_counter import ApproximateTokenCounter
@@ -118,13 +118,13 @@ async def test_postgres_concurrent_duplicate_candidate_keeps_single_memory_versi
             scope=scope,
             candidate=candidate,
             source_episode_ids=[],
-            embedding=[0.1] * 1024,
+            embedding=EmbeddingVector(values=[0.1] * 1024, model="mock-embedding", dimensions=1024),
         ),
         store.apply_candidate(
             scope=scope,
             candidate=candidate,
             source_episode_ids=[],
-            embedding=[0.1] * 1024,
+            embedding=EmbeddingVector(values=[0.1] * 1024, model="mock-embedding", dimensions=1024),
         ),
     )
     first = first_outcome.memory

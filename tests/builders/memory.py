@@ -9,7 +9,7 @@ from memrise.core.models import Episode, Scope
 from memrise.core.time import utc_now
 from memrise.integrations.postgres.schema.models import MemoryVersionRow
 from memrise.integrations.postgres.session import session_scope
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 
 
 def contract_scope(*, namespace_id: str | None = None) -> Scope:
@@ -21,8 +21,12 @@ def contract_scope(*, namespace_id: str | None = None) -> Scope:
     )
 
 
-def embedding_vector(*, dimensions: int = 1024) -> list[float]:
-    return [0.1] * dimensions
+def embedding_vector(*, dimensions: int = 1024) -> EmbeddingVector:
+    return EmbeddingVector(
+        values=[0.1] * dimensions,
+        model="mock-embedding",
+        dimensions=dimensions,
+    )
 
 
 def npm_candidate() -> ExtractedMemoryCandidate:

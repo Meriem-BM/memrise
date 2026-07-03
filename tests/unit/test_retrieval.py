@@ -5,6 +5,7 @@ from tests.mocks.providers import MockEmbeddingProvider
 
 from memrise.core.enums import MemoryStatus, RetrievalSourceType
 from memrise.core.models import Scope
+from memrise.ports.providers import EmbeddingVector
 from memrise.read.retrieval import (
     RetrievalCandidate,
     RetrievalService,
@@ -123,3 +124,58 @@ async def test_contested_memories_surface_with_rank_penalty() -> None:
     version_ids = [memory.version.id for memory in memories]
     assert "memv_contested" in version_ids
     assert version_ids.index("memv_active") < version_ids.index("memv_contested")
+
+
+async def test_semantic_channel_only_compares_same_model_embeddings() -> None:
+    store = MemoryStoreStub(
+        memories=[
+            make_memory(
+                memory_id="mem_same",
+                version_id="memv_same",
+                key="k1",
+                content="Atlas deploys on Fridays.",
+                embedding=[0.1, 0.2, 0.3],
+                embedding_model="mock-embedding",
+            ),
+            make_memory(
+                memory_id="mem_other",
+                version_id="memv_other",
+                key="k2",
+                content="Atlas deploys on Fridays too.",
+                embedding=[0.1, 0.2, 0.3],
+                embedding_model="legacy-model",
+            ),
+        ]
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    hits = await store.search_semantic(
+        scope=scope,
+        embedding=EmbeddingVector(values=[0.1, 0.2, 0.3], model="mock-embedding", dimensions=3),
+        limit=10,
+    )
+
+    assert [memory.version.id for memory, _ in hits] == ["memv_same"]
+
+
+async def test_lexical_channel_comes_from_store_search() -> None:
+    store = MemoryStoreStub(
+        memories=[
+            make_memory(
+                memory_id="mem_hit",
+                version_id="memv_hit",
+                content="Atlas uses pnpm for dependencies.",
+            ),
+            make_memory(
+                memory_id="mem_miss",
+                version_id="memv_miss",
+                key="deploy_day",
+                content="Deploys happen on Fridays.",
+            ),
+        ]
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    hits = await store.search_lexical(scope=scope, query="pnpm dependencies", limit=10)
+
+    assert [memory.version.id for memory, _ in hits] == ["memv_hit"]

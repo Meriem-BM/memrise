@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from memrise.ports.providers import (
     CompletionProvider,
     EmbeddingProvider,
+    EmbeddingVector,
     EpisodeClassification,
     EpisodeDurability,
     ExtractedMemoryCandidate,
@@ -22,13 +23,20 @@ class MockCompletionProvider(CompletionProvider):
         return self.result
 
 
+MOCK_EMBEDDING_MODEL = "mock-embedding"
+
+
 @dataclass
 class MockEmbeddingProvider(EmbeddingProvider):
     vector: list[float] = field(default_factory=lambda: [0.1, 0.2, 0.3])
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str) -> EmbeddingVector:
         del text
-        return list(self.vector)
+        return EmbeddingVector(
+            values=list(self.vector),
+            model=MOCK_EMBEDDING_MODEL,
+            dimensions=len(self.vector),
+        )
 
 
 def single_candidate_result(candidate: ExtractedMemoryCandidate) -> ExtractionResult:

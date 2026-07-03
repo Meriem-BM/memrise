@@ -153,9 +153,16 @@ class MemoryVersionRow(Base):
         nullable=True,
     )
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    embedding_dimensions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    embedding_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    search_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     search_document: Mapped[str | None] = mapped_column(
         TSVECTOR,
-        Computed("to_tsvector('english', coalesce(content, ''))", persisted=True),
+        Computed(
+            "to_tsvector('english', coalesce(content, '') || ' ' || coalesce(search_text, ''))",
+            persisted=True,
+        ),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

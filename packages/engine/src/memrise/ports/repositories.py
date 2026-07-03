@@ -14,7 +14,11 @@ from memrise.core.models import (
     RetrievalTrace,
     Scope,
 )
-from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandidate
+from memrise.ports.providers import (
+    EmbeddingVector,
+    ExtractedGraphRelation,
+    ExtractedMemoryCandidate,
+)
 
 
 class MemoryStore(Protocol):
@@ -41,6 +45,22 @@ class MemoryStore(Protocol):
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]: ...
 
+    async def search_lexical(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]: ...
+
+    async def search_semantic(
+        self,
+        *,
+        scope: Scope,
+        embedding: EmbeddingVector,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]: ...
+
     async def find_current_memory(
         self,
         *,
@@ -55,7 +75,7 @@ class MemoryStore(Protocol):
         scope: Scope,
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
-        embedding: list[float],
+        embedding: EmbeddingVector,
     ) -> ApplyCandidateOutcome: ...
 
     async def list_candidate_stages_for_episode(

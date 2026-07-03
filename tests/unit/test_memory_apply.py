@@ -7,14 +7,19 @@ from memrise.core.models import Scope
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import Reconciler
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
 
 NOW = datetime(2026, 7, 3, tzinfo=UTC)
 SCOPE = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
 
-SIMILAR = [1.0, 0.0, 0.05]
-DISSIMILAR = [0.0, 1.0, 0.0]
+
+def _vector(values: list[float]) -> EmbeddingVector:
+    return EmbeddingVector(values=values, model="mock-embedding", dimensions=len(values))
+
+
+SIMILAR = _vector([1.0, 0.0, 0.05])
+DISSIMILAR = _vector([0.0, 1.0, 0.0])
 BASE = [1.0, 0.0, 0.0]
 
 

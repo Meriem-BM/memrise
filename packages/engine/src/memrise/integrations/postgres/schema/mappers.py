@@ -75,6 +75,7 @@ def canonical_from_rows(memory: MemoryRow, version: MemoryVersionRow) -> Canonic
         superseded_by_version_id=version.superseded_by_version_id,
         created_at=version.created_at,
         embedding=list(version.embedding) if version.embedding is not None else None,
+        embedding_model=version.embedding_model,
     )
     return CanonicalMemory(identity=identity, version=memory_version)
 

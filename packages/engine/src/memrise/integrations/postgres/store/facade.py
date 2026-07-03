@@ -22,7 +22,11 @@ from memrise.learning.apply import MemoryApplyService
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.learning.reconciliation import Reconciler
 from memrise.ports.ids import IdGenerator
-from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandidate
+from memrise.ports.providers import (
+    EmbeddingVector,
+    ExtractedGraphRelation,
+    ExtractedMemoryCandidate,
+)
 
 
 class PostgresMemoryStore:
@@ -83,6 +87,24 @@ class PostgresMemoryStore:
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:
         return await self._memories.list_memory_history(memory_id)
 
+    async def search_lexical(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        return await self._memories.search_lexical(scope=scope, query=query, limit=limit)
+
+    async def search_semantic(
+        self,
+        *,
+        scope: Scope,
+        embedding: EmbeddingVector,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        return await self._memories.search_semantic(scope=scope, embedding=embedding, limit=limit)
+
     async def find_current_memory(
         self,
         *,
@@ -102,7 +124,7 @@ class PostgresMemoryStore:
         scope: Scope,
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
-        embedding: list[float],
+        embedding: EmbeddingVector,
     ) -> ApplyCandidateOutcome:
         return await self._memories.apply_candidate(
             scope=scope,

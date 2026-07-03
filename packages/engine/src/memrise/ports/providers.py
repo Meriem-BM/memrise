@@ -113,6 +113,20 @@ class ExtractionResult(BaseModel):
     prompt_version: str
 
 
+class EmbeddingVector(BaseModel):
+    """An embedding plus the model identity that produced it.
+
+    Embeddings from different models are not comparable; every consumer must
+    filter or guard on `model` before computing similarity.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    values: list[float]
+    model: str
+    dimensions: int
+
+
 class CompletionProvider(Protocol):
     async def extract_memories(
         self, *, text: str, context: dict[str, object]
@@ -120,7 +134,7 @@ class CompletionProvider(Protocol):
 
 
 class EmbeddingProvider(Protocol):
-    async def embed(self, text: str) -> list[float]: ...
+    async def embed(self, text: str) -> EmbeddingVector: ...
 
 
 class TokenCounter(Protocol):

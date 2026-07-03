@@ -10,6 +10,7 @@ from memrise.integrations.qwen.errors import QwenProviderError
 from memrise.ports.providers import (
     CompletionProvider,
     EmbeddingProvider,
+    EmbeddingVector,
     ExtractionResult,
 )
 from memrise.runtime.settings import MemorySettings
@@ -80,7 +81,7 @@ class QwenEmbeddingProvider(EmbeddingProvider):
         self._settings = settings
         self._client = _client_from_settings(settings)
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str) -> EmbeddingVector:
         client = _require_client(self._client)
         try:
             response = await client.embeddings.create(
@@ -92,7 +93,11 @@ class QwenEmbeddingProvider(EmbeddingProvider):
         except AuthenticationError as exc:
             msg = "Qwen embedding authentication failed; verify ALIBABA_CLOUD_API_KEY"
             raise QwenProviderError(msg) from exc
-        return list(response.data[0].embedding)
+        return EmbeddingVector(
+            values=list(response.data[0].embedding),
+            model=self._settings.qwen_embedding_model,
+            dimensions=self._settings.qwen_embedding_dimensions,
+        )
 
 
 def _client_from_settings(settings: MemorySettings) -> AsyncOpenAI | None:

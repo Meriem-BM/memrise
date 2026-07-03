@@ -7,7 +7,7 @@ from memrise.core.models import CanonicalMemory, Feedback, Scope
 from memrise.learning.policy import clamp_usefulness
 from memrise.learning.reconciliation import Reconciler, reconcile_skip_reason_from_text
 from memrise.ports.ids import IdGenerator
-from memrise.ports.providers import ExtractedMemoryCandidate
+from memrise.ports.providers import EmbeddingVector, ExtractedMemoryCandidate
 from memrise.ports.repositories import FeedbackPolicy
 
 # Above this cosine similarity, a text conflict without an explicit correction is
@@ -28,7 +28,7 @@ class NewVersionPlan:
     memory_id: str | None
     scope: Scope
     candidate: ExtractedMemoryCandidate
-    embedding: list[float]
+    embedding: EmbeddingVector
     version_number: int
     supersedes_version_id: str | None
     supersede_existing_version_id: str | None
@@ -64,7 +64,7 @@ class MemoryApplyService:
         candidate: ExtractedMemoryCandidate,
         existing: CanonicalMemory | None,
         source_episode_ids: list[str],
-        embedding: list[float],
+        embedding: EmbeddingVector,
         now: datetime,
     ) -> CandidateApplyPlan | None:
         decision = self._reconciler.decide(candidate=candidate, existing=existing, now=now)
@@ -151,7 +151,7 @@ def _is_paraphrase_of(
     *,
     existing: CanonicalMemory | None,
     candidate: ExtractedMemoryCandidate,
-    embedding: list[float],
+    embedding: EmbeddingVector,
 ) -> bool:
     """Detect implicit paraphrases so restated facts reinforce instead of contest.
 
@@ -160,10 +160,15 @@ def _is_paraphrase_of(
     """
     if existing is None or existing.version.embedding is None:
         return False
+    if existing.version.embedding_model is not None and (
+        existing.version.embedding_model != embedding.model
+    ):
+        return False
     if candidate.operation_hint == MemoryOperation.CONTEST:
         return False
     if candidate.structured_value and existing.version.structured_value:
         return False
     return (
-        cosine_similarity(embedding, existing.version.embedding) >= SEMANTIC_EQUIVALENCE_THRESHOLD
+        cosine_similarity(embedding.values, existing.version.embedding)
+        >= SEMANTIC_EQUIVALENCE_THRESHOLD
     )

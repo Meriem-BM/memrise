@@ -112,6 +112,7 @@ class MemoryVersion:
     supersedes_version_id: str | None = None
     superseded_by_version_id: str | None = None
     embedding: list[float] | None = None
+    embedding_model: str | None = None
 
     def __post_init__(self) -> None:
         require_utc(self.valid_from)

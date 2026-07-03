@@ -36,12 +36,20 @@ from memrise.learning.reconciliation import (
     same_memory_value,
 )
 from memrise.ports.ids import IdGenerator
-from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandidate
+from memrise.ports.providers import (
+    EmbeddingVector,
+    ExtractedGraphRelation,
+    ExtractedMemoryCandidate,
+)
 from memrise.runtime.ids import UuidGenerator
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def _search_terms(text: str) -> set[str]:
+    return {part.strip(".,:;!?()[]{}\"'").lower() for part in text.split() if part.strip()}
 
 
 def make_memory(
@@ -68,6 +76,7 @@ def make_memory(
     supersedes_version_id: str | None = None,
     superseded_by_version_id: str | None = None,
     embedding: list[float] | None = None,
+    embedding_model: str | None = None,
 ) -> CanonicalMemory:
     now = _utc_now()
     identity = MemoryIdentity(
@@ -98,6 +107,7 @@ def make_memory(
         supersedes_version_id=supersedes_version_id,
         superseded_by_version_id=superseded_by_version_id,
         embedding=embedding,
+        embedding_model=embedding_model,
         created_at=now,
     )
     return CanonicalMemory(identity=identity, version=version)
@@ -207,6 +217,65 @@ class MemoryStoreStub:
                 results.append(memory)
         return results
 
+    async def search_lexical(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        query_terms = _search_terms(query)
+        scored: list[tuple[CanonicalMemory, float]] = []
+        for memory in self._live_scope_memories(scope):
+            text = f"{memory.identity.subject} {memory.identity.key} {memory.version.content}"
+            terms = _search_terms(text)
+            if not query_terms or not (query_terms & terms):
+                continue
+            scored.append((memory, len(query_terms & terms) / len(query_terms)))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored[:limit]
+
+    async def search_semantic(
+        self,
+        *,
+        scope: Scope,
+        embedding: EmbeddingVector,
+        limit: int,
+    ) -> list[tuple[CanonicalMemory, float]]:
+        if not embedding.values:
+            return []
+        scored: list[tuple[CanonicalMemory, float]] = []
+        for memory in self._live_scope_memories(scope):
+            version = memory.version
+            if version.embedding is None:
+                continue
+            if version.embedding_model is not None and version.embedding_model != embedding.model:
+                continue
+            scored.append((memory, cosine_similarity(embedding.values, version.embedding)))
+        scored.sort(key=lambda item: item[1], reverse=True)
+        return scored[:limit]
+
+    def _live_scope_memories(self, scope: Scope) -> list[CanonicalMemory]:
+        now = _utc_now()
+        results: list[CanonicalMemory] = []
+        for memory in self.memories:
+            identity = memory.identity
+            version = memory.version
+            if identity.namespace_id != scope.namespace_id or identity.agent_id != scope.agent_id:
+                continue
+            if identity.user_id is not None and identity.user_id != scope.user_id:
+                continue
+            if identity.project_id is not None and identity.project_id != scope.project_id:
+                continue
+            if version.status not in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED):
+                continue
+            if version.valid_from > now:
+                continue
+            if version.valid_until is not None and version.valid_until <= now:
+                continue
+            results.append(memory)
+        return results
+
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:
         return [memory for memory in self.memories if memory.identity.id == memory_id]
 
@@ -230,9 +299,9 @@ class MemoryStoreStub:
         *,
         scope: Scope,
         candidate: ExtractedMemoryCandidate,
-        embedding: list[float],
+        embedding: EmbeddingVector,
     ) -> CanonicalMemory | None:
-        if not embedding:
+        if not embedding.values:
             return None
         best: CanonicalMemory | None = None
         best_similarity = SEMANTIC_EQUIVALENCE_THRESHOLD
@@ -254,7 +323,9 @@ class MemoryStoreStub:
                 continue
             if version.embedding is None:
                 continue
-            similarity = cosine_similarity(embedding, version.embedding)
+            if version.embedding_model is not None and version.embedding_model != embedding.model:
+                continue
+            similarity = cosine_similarity(embedding.values, version.embedding)
             if similarity >= best_similarity:
                 best = memory
                 best_similarity = similarity
@@ -312,7 +383,7 @@ class MemoryStoreStub:
         scope: Scope,
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
-        embedding: list[float],
+        embedding: EmbeddingVector,
     ) -> ApplyCandidateOutcome:
         existing = await self.find_current_memory(
             scope=scope,
