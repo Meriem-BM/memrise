@@ -1,9 +1,8 @@
 from tests.mocks.memory_store import make_memory
 
 from memrise.core.enums import MemoryType
-from memrise.graph.entity_typing import default_node_type_for_memory, resolve_graph_node_type
-from memrise.graph.ontology import NodeType
-from memrise.graph.projection_builder import build_graph_projection
+from memrise.graph.entities import default_node_type_for_memory, resolve_graph_node_type
+from memrise.graph.projection import build_graph_projection
 from memrise.ports.providers import ExtractedGraphRelation
 
 
@@ -15,7 +14,7 @@ def test_resolve_graph_node_type_uses_declared_provider_types() -> None:
         role="source",
     )
 
-    assert node_type == NodeType.ORGANIZATION
+    assert node_type == "Organization"
 
 
 def test_resolve_graph_node_type_uses_applicability_entity_map() -> None:
@@ -31,13 +30,13 @@ def test_resolve_graph_node_type_uses_applicability_entity_map() -> None:
         role="target",
     )
 
-    assert node_type == NodeType.TECHNOLOGY
+    assert node_type == "Technology"
 
 
 def test_default_node_type_for_memory_maps_goals_to_tasks() -> None:
     memory = make_memory(subject="Ship billing export", type=MemoryType.GOAL)
 
-    assert default_node_type_for_memory(memory) == NodeType.TASK
+    assert default_node_type_for_memory(memory) == "Task"
 
 
 def test_build_graph_projection_uses_typed_relations() -> None:

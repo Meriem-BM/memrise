@@ -1,11 +1,10 @@
 from datetime import UTC, datetime
 
 import pytest
-from tests.mocks.graph_repository import GraphRepositoryStub
+from tests.mocks.graph_services import build_graph_projection_service
 from tests.mocks.memory_store import MemoryStoreStub
 from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
 
-from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import EpisodeKind, JobStatus, JobType
 from memrise.core.errors import UnimplementedJobError
@@ -53,9 +52,7 @@ def _processor(store: MemoryStoreStub) -> JobProcessor:
     return JobProcessor(
         store=store,
         write=write,
-        graph_projection=GraphProjectionService(
-            graph_repository=GraphRepositoryStub(available=False)
-        ),
+        graph_projection=build_graph_projection_service(),
         session_consolidation=SessionConsolidationService(store=store, write=write),
     )
 

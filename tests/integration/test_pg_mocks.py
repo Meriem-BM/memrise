@@ -4,13 +4,13 @@ from uuid import uuid4
 import pytest
 from tests.integration.db import database_url
 from tests.mocks.graph_repository import GraphRepositoryStub
+from tests.mocks.graph_services import build_graph_projection_service
 from tests.mocks.providers import (
     MockCompletionProvider,
     MockEmbeddingProvider,
     single_candidate_result,
 )
 
-from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.core.enums import Criticality, EpisodeKind, MemoryStatus, MemoryType
 from memrise.core.models import Scope
 from memrise.integrations.postgres import (
@@ -56,9 +56,7 @@ def build_mock_memory() -> tuple[Memrise, MockCompletionProvider]:
         store=store,
         jobs=jobs,
         graph_repository=GraphRepositoryStub(available=False),
-        graph_projection=GraphProjectionService(
-            graph_repository=GraphRepositoryStub(available=False)
-        ),
+        graph_projection=build_graph_projection_service(),
         completion_provider=completion,
         embedding_provider=MockEmbeddingProvider(vector=[0.1] * 1024),
         token_counter=ApproximateTokenCounter(),
