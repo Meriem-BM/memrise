@@ -6,7 +6,6 @@ from tests.mocks.memory_store import MemoryStoreStub
 from tests.mocks.providers import MockCompletionProvider, MockEmbeddingProvider, no_memory_result
 
 from memrise.core.enums import EpisodeKind, JobType
-from memrise.core.errors import IdempotencyConflictError
 from memrise.core.models import Episode
 from memrise.runtime.ids import UuidGenerator
 from memrise.schemas.requests import CaptureRequest
@@ -92,28 +91,6 @@ def test_capture_request_requires_single_event_for_idempotency_key() -> None:
                 ],
             }
         )
-
-
-async def test_capture_episode_rejects_idempotency_key_payload_mismatch() -> None:
-    store = MemoryStoreStub()
-    jobs = DedupingJobQueueStub()
-    service = _write_service(store, jobs)
-
-    await service.capture_episode(_episode())
-    mismatched = _episode(episode_id="episode_b")
-    mismatched = Episode(
-        id="episode_b",
-        namespace_id=mismatched.namespace_id,
-        agent_id=mismatched.agent_id,
-        session_id=mismatched.session_id,
-        project_id=mismatched.project_id,
-        kind=mismatched.kind,
-        content="Different payload.",
-        created_at=mismatched.created_at,
-        idempotency_key=mismatched.idempotency_key,
-    )
-    with pytest.raises(IdempotencyConflictError):
-        await service.capture_episode(mismatched)
 
 
 async def test_capture_episode_replays_existing_episode_and_job() -> None:

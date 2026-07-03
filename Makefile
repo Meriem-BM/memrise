@@ -61,7 +61,7 @@ test:
 	pnpm --recursive test
 
 test-integration:
-	$(UV_ENV) uv run pytest tests/integration
+	$(UV_ENV) uv run pytest tests/integration tests/contract
 
 test-e2e:
 	pnpm --filter @memrise/web test:e2e
