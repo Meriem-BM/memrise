@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 
 from memrise.consolidation.graph_projection import GraphProjectionService
+from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import (
     Criticality,
     EpisodeKind,
@@ -106,6 +107,10 @@ class Memrise:
             store=store,
             write=self._write,
             graph_projection=graph_projection,
+            session_consolidation=SessionConsolidationService(
+                store=store,
+                write=self._write,
+            ),
         )
 
     @classmethod
