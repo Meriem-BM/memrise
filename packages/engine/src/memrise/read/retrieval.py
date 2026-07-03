@@ -1,5 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
+from math import sqrt
 
 from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
@@ -35,14 +36,32 @@ def _terms(text: str) -> set[str]:
     return {part.strip(".,:;!?()[]{}\"'").lower() for part in text.split() if part.strip()}
 
 
-def lexical_score(query: str, memory: CanonicalMemory) -> float:
+def _term_overlap(query: str, text: str) -> float:
     query_terms = _terms(query)
-    content_terms = _terms(
-        f"{memory.identity.subject} {memory.identity.key} {memory.version.content}"
-    )
     if not query_terms:
         return 0.0
-    return len(query_terms & content_terms) / len(query_terms)
+    return len(query_terms & _terms(text)) / len(query_terms)
+
+
+def lexical_score(query: str, memory: CanonicalMemory) -> float:
+    return _term_overlap(
+        query, f"{memory.identity.subject} {memory.identity.key} {memory.version.content}"
+    )
+
+
+def structured_score(query: str, memory: CanonicalMemory) -> float:
+    return _term_overlap(query, f"{memory.identity.subject} {memory.identity.key}")
+
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b, strict=True))
+    norm_a = sqrt(sum(x * x for x in a))
+    norm_b = sqrt(sum(y * y for y in b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return dot / (norm_a * norm_b)
 
 
 def scope_specificity(memory: CanonicalMemory) -> float:
@@ -57,6 +76,28 @@ def scope_specificity(memory: CanonicalMemory) -> float:
 def graph_score(*, seed_match_score: float, path_confidence: float, path_length: int) -> float:
     depth_penalty = 1.0 if path_length <= 1 else 0.8
     return seed_match_score * path_confidence * depth_penalty
+
+
+def _ranked_candidates(
+    memories: list[CanonicalMemory],
+    *,
+    source_type: RetrievalSourceType,
+    score_by_version_id: dict[str, float],
+) -> list[RetrievalCandidate]:
+    ordered = sorted(
+        memories,
+        key=lambda memory: score_by_version_id.get(memory.version.id, 0.0),
+        reverse=True,
+    )
+    return [
+        RetrievalCandidate(
+            memory,
+            source_type,
+            rank,
+            score_by_version_id.get(memory.version.id, 0.0),
+        )
+        for rank, memory in enumerate(ordered, start=1)
+    ]
 
 
 class RetrievalService:
@@ -104,78 +145,34 @@ class RetrievalService:
             for memory in applicable
             if memory.version.criticality != Criticality.MUST_INCLUDE
         ]
-        lexical = sorted(
-            [
-                RetrievalCandidate(
-                    memory, RetrievalSourceType.LEXICAL, index + 1, lexical_score(query, memory)
-                )
-                for index, memory in enumerate(normal_pool)
-            ],
-            key=lambda item: item.score,
-            reverse=True,
+
+        lexical_scores = {memory.version.id: lexical_score(query, memory) for memory in normal_pool}
+        structured_scores = {
+            memory.version.id: structured_score(query, memory) for memory in normal_pool
+        }
+        semantic_scores = await self._semantic_scores(query, normal_pool)
+
+        lexical = _ranked_candidates(
+            normal_pool,
+            source_type=RetrievalSourceType.LEXICAL,
+            score_by_version_id=lexical_scores,
         )
-        structured = sorted(
-            [
-                RetrievalCandidate(
-                    memory,
-                    RetrievalSourceType.STRUCTURED,
-                    index + 1,
-                    lexical_score(f"{memory.identity.subject} {memory.identity.key}", memory),
-                )
-                for index, memory in enumerate(normal_pool)
-            ],
-            key=lambda item: item.score,
-            reverse=True,
+        structured = _ranked_candidates(
+            normal_pool,
+            source_type=RetrievalSourceType.STRUCTURED,
+            score_by_version_id=structured_scores,
         )
-        await self._embedding_provider.embed(query)
-        semantic = [
-            RetrievalCandidate(
-                memory, RetrievalSourceType.SEMANTIC, index + 1, memory.version.importance
-            )
-            for index, memory in enumerate(normal_pool)
-        ]
-        graph: list[RetrievalCandidate] = []
-        if should_use_graph_retrieval(query) and await self._graph_repository.is_available():
-            depth = clamp_graph_depth(graph_hops)
-            if self._graph_traversal is not None:
-                paths = await self._graph_traversal.traverse_for_query(
-                    namespace_id=scope.namespace_id,
-                    query=query,
-                    depth=depth,
-                    project_id=scope.project_id,
-                )
-            else:
-                paths = await self._graph_repository.search(
-                    GraphSearchRequest(
-                        namespace_id=scope.namespace_id,
-                        query=query,
-                        depth=depth,
-                    )
-                )
-            seen_versions: set[str] = set()
-            for index, path in enumerate(paths, start=1):
-                for memory_version_id in path.source_memory_version_ids:
-                    if memory_version_id in seen_versions:
-                        continue
-                    memory = memory_by_version_id.get(memory_version_id)
-                    if memory is None:
-                        continue
-                    edge_id = path.edges[-1].uid if path.edges else None
-                    score = graph_score(
-                        seed_match_score=path.seed_match_score,
-                        path_confidence=path.path_confidence,
-                        path_length=path.path_length,
-                    )
-                    graph.append(
-                        RetrievalCandidate(
-                            memory,
-                            RetrievalSourceType.GRAPH,
-                            index,
-                            score,
-                            graph_edge_id=edge_id,
-                        )
-                    )
-                    seen_versions.add(memory_version_id)
+        semantic = _ranked_candidates(
+            normal_pool,
+            source_type=RetrievalSourceType.SEMANTIC,
+            score_by_version_id=semantic_scores,
+        )
+        graph = await self._graph_candidates(
+            scope=scope,
+            query=query,
+            graph_hops=graph_hops,
+            memory_by_version_id=memory_by_version_id,
+        )
 
         fused_scores = reciprocal_rank_fusion(lexical + structured + semantic + graph)
         ranked = sorted(
@@ -201,49 +198,106 @@ class RetrievalService:
             token_budget=token_budget,
             created_at=utc_now(),
         )
-        candidate_lists = {
-            RetrievalSourceType.LEXICAL: lexical,
-            RetrievalSourceType.STRUCTURED: structured,
-            RetrievalSourceType.SEMANTIC: semantic,
-            RetrievalSourceType.GRAPH: graph,
-        }
+        best_source = _best_source_by_version(lexical + structured + semantic + graph)
         items: list[RetrievalItem] = []
         for rank, memory in enumerate(ranked, start=1):
-            source_type = RetrievalSourceType.LEXICAL
-            graph_edge_id = None
-            graph_item_score = None
-            for candidate_source, candidates in candidate_lists.items():
-                for candidate in candidates:
-                    if candidate.memory.version.id == memory.version.id:
-                        source_type = candidate_source
-                        graph_edge_id = candidate.graph_edge_id
-                        if candidate_source == RetrievalSourceType.GRAPH:
-                            graph_item_score = candidate.score
-                        break
+            candidate = best_source.get(memory.version.id)
+            is_graph = candidate is not None and candidate.source_type == RetrievalSourceType.GRAPH
             items.append(
                 RetrievalItem(
                     retrieval_id=retrieval_id,
                     memory_version_id=memory.version.id,
-                    graph_edge_id=graph_edge_id,
-                    source_type=source_type,
+                    graph_edge_id=candidate.graph_edge_id if candidate is not None else None,
+                    source_type=(
+                        candidate.source_type
+                        if candidate is not None
+                        else RetrievalSourceType.LEXICAL
+                    ),
                     original_rank=rank,
                     final_rank=rank,
-                    lexical_score=lexical_score(query, memory),
-                    graph_score=graph_item_score,
+                    lexical_score=lexical_scores.get(memory.version.id),
+                    semantic_score=semantic_scores.get(memory.version.id),
+                    graph_score=candidate.score if is_graph and candidate is not None else None,
                     usefulness_score=memory.version.usefulness_score,
                     selected_for_context=memory.version.id in selected_ids,
                     token_count=self._token_counter.count(memory.version.content),
                 )
             )
         await self._store.save_retrieval_trace(trace, items)
-        context_parts = [memory.version.content for memory in selected]
-        context = "\n".join(f"- {part}" for part in context_parts)
+        context = "\n".join(f"- {memory.version.content}" for memory in selected)
         used_tokens = self._token_counter.count(context)
         selected_critical = [memory for memory in critical if memory.version.id in selected_ids]
         selected_normal = [
             memory for memory in selected if memory.version.criticality != Criticality.MUST_INCLUDE
         ]
         return retrieval_id, selected_critical, selected_normal, context, used_tokens
+
+    async def _semantic_scores(
+        self,
+        query: str,
+        memories: list[CanonicalMemory],
+    ) -> dict[str, float]:
+        with_embeddings = [memory for memory in memories if memory.version.embedding]
+        if not with_embeddings:
+            return {}
+        query_embedding = await self._embedding_provider.embed(query)
+        return {
+            memory.version.id: cosine_similarity(query_embedding, memory.version.embedding or [])
+            for memory in with_embeddings
+        }
+
+    async def _graph_candidates(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        graph_hops: int,
+        memory_by_version_id: dict[str, CanonicalMemory],
+    ) -> list[RetrievalCandidate]:
+        if not should_use_graph_retrieval(query):
+            return []
+        if not await self._graph_repository.is_available():
+            return []
+        depth = clamp_graph_depth(graph_hops)
+        if self._graph_traversal is not None:
+            paths = await self._graph_traversal.traverse_for_query(
+                namespace_id=scope.namespace_id,
+                query=query,
+                depth=depth,
+                project_id=scope.project_id,
+            )
+        else:
+            paths = await self._graph_repository.search(
+                GraphSearchRequest(
+                    namespace_id=scope.namespace_id,
+                    query=query,
+                    depth=depth,
+                )
+            )
+        candidates: list[RetrievalCandidate] = []
+        seen_versions: set[str] = set()
+        for index, path in enumerate(paths, start=1):
+            for memory_version_id in path.source_memory_version_ids:
+                if memory_version_id in seen_versions:
+                    continue
+                memory = memory_by_version_id.get(memory_version_id)
+                if memory is None:
+                    continue
+                candidates.append(
+                    RetrievalCandidate(
+                        memory,
+                        RetrievalSourceType.GRAPH,
+                        index,
+                        graph_score(
+                            seed_match_score=path.seed_match_score,
+                            path_confidence=path.path_confidence,
+                            path_length=path.path_length,
+                        ),
+                        graph_edge_id=path.edges[-1].uid if path.edges else None,
+                    )
+                )
+                seen_versions.add(memory_version_id)
+        return candidates
 
     def _is_applicable(self, memory: CanonicalMemory) -> bool:
         version = memory.version
@@ -296,3 +350,21 @@ class RetrievalService:
             seen.add(memory.version.id)
             used += cost
         return selected
+
+
+def _best_source_by_version(
+    candidates: list[RetrievalCandidate],
+) -> dict[str, RetrievalCandidate]:
+    """Pick one attributable source per memory: graph wins, then the best rank."""
+    best: dict[str, RetrievalCandidate] = {}
+    for candidate in candidates:
+        version_id = candidate.memory.version.id
+        current = best.get(version_id)
+        if current is None:
+            best[version_id] = candidate
+            continue
+        if current.source_type == RetrievalSourceType.GRAPH:
+            continue
+        if candidate.source_type == RetrievalSourceType.GRAPH or candidate.rank < current.rank:
+            best[version_id] = candidate
+    return best

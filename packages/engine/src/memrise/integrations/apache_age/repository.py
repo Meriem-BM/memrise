@@ -34,6 +34,7 @@ class AgeGraphRepository:
         self._session_factory = session_factory
         self._graph_name = graph_name
         self._ids = id_generator
+        self._available: bool | None = None
         self._cypher = CypherExecutor(
             session_factory,
             graph_name=graph_name,
@@ -41,11 +42,13 @@ class AgeGraphRepository:
         )
 
     async def is_available(self) -> bool:
-        async with self._session_factory() as session:
-            installed = await session.scalar(
-                text("select exists (select 1 from pg_extension where extname = 'age')")
-            )
-            return bool(installed)
+        if self._available is None:
+            async with self._session_factory() as session:
+                installed = await session.scalar(
+                    text("select exists (select 1 from pg_extension where extname = 'age')")
+                )
+            self._available = bool(installed)
+        return self._available
 
     async def project(self, projection: GraphProjection) -> GraphProjectionResult:
         if not await self.is_available():
