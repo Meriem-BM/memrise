@@ -1,8 +1,13 @@
+import re
 from enum import StrEnum
 
 from memrise.core.text import normalize_lookup
 
 DEFAULT_NODE_TYPE = "Concept"
+
+# Node labels are interpolated into Cypher statements (AGE has no label
+# parameters), so anything outside this shape must never reach the graph layer.
+_SAFE_NODE_LABEL = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 
 class RelationType(StrEnum):
@@ -31,7 +36,9 @@ def coerce_node_label(value: str | None, *, default: str = DEFAULT_NODE_TYPE) ->
     if value is None:
         return default
     stripped = value.strip()
-    return stripped or default
+    if not stripped or not _SAFE_NODE_LABEL.match(stripped):
+        return default
+    return stripped
 
 
 def coerce_relation(value: str) -> str:
