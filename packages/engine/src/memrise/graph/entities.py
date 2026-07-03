@@ -191,9 +191,6 @@ class EntityResolver:
         return resolved
 
 
-EntityResolutionService = EntityResolver
-
-
 def query_search_terms(query: str) -> list[str]:
     stripped = query.strip().rstrip("?").strip()
     if not stripped:

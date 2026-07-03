@@ -2,8 +2,6 @@ import hashlib
 
 from memrise.graph.types import normalize_entity_name
 
-normalized_entity_name = normalize_entity_name
-
 
 def node_identity_key(*, namespace_id: str, node_type: str, name: str) -> str:
     return f"{namespace_id}:{node_type}:{normalize_entity_name(name)}"

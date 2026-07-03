@@ -56,6 +56,7 @@ from memrise.schemas.responses import (
     RememberResponse,
     RetrievalDetail,
     RetrievalTraceSummary,
+    RetrievedMemory,
     RetrieveResponse,
 )
 
@@ -505,20 +506,20 @@ class Memrise:
     async def process_job(self, job: BackgroundJob) -> None:
         await self._job_processor.process(job)
 
-    async def _retrieved_memories(self, memories: list[CanonicalMemory]) -> list:
-        return [
-            await to_retrieved_memory(
-                memory=memory,
-                store=self._store,
-                token_counter=self._token_counter,
-                selected=True,
+    async def _retrieved_memories(self, memories: list[CanonicalMemory]) -> list[RetrievedMemory]:
+        return list(
+            await asyncio.gather(
+                *(
+                    to_retrieved_memory(
+                        memory=memory,
+                        store=self._store,
+                        token_counter=self._token_counter,
+                        selected=True,
+                    )
+                    for memory in memories
+                )
             )
-            for memory in memories
-        ]
+        )
 
 
-class Memory(Memrise):
-    """Compatibility alias for the public Memrise SDK class."""
-
-
-__all__ = ["Memory", "Memrise", "to_job_summary", "to_memory_summary"]
+__all__ = ["Memrise", "to_job_summary", "to_memory_summary"]

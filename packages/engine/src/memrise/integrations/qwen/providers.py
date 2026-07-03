@@ -48,7 +48,7 @@ class QwenCompletionProvider(CompletionProvider):
             {
                 "role": "user",
                 "content": json.dumps(
-                    {"text": text, "context": _enrich_context(context)},
+                    {"text": text, "context": context},
                     ensure_ascii=False,
                 ),
             },
@@ -104,13 +104,6 @@ def _client_from_settings(settings: MemorySettings) -> AsyncOpenAI | None:
         timeout=settings.qwen_timeout_seconds,
         max_retries=settings.qwen_max_retries,
     )
-
-
-def _enrich_context(context: dict[str, object]) -> dict[str, object]:
-    packs = context.get("active_schema_packs")
-    if isinstance(packs, list):
-        return context
-    return context
 
 
 def schema_pack_context(packs: list[GraphSchemaPack]) -> list[dict[str, object]]:

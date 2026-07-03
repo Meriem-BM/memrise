@@ -3,7 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.integration.db import database_url
 
-from memrise import Memory
+from memrise import Memrise
 from memrise.core.enums import EpisodeKind, FeedbackOutcome, FeedbackSource
 
 DEMO_EPISODE = (
@@ -56,7 +56,7 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
 
 
 async def test_vertical_slice_end_to_end() -> None:
-    memory = Memory.from_env()
+    memory = Memrise.from_env()
     capture = await memory.capture(
         namespace_id="it",
         agent_id="coding-agent",
@@ -124,7 +124,7 @@ async def test_vertical_slice_end_to_end() -> None:
 
 
 async def test_two_workers_do_not_claim_same_job() -> None:
-    memory = Memory.from_env()
+    memory = Memrise.from_env()
     capture = await memory.capture(
         namespace_id="it-claim",
         agent_id="coding-agent",

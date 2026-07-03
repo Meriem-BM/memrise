@@ -15,9 +15,9 @@ from memrise.graph.entities import (
     GraphEndpointRole,
     resolve_graph_node_type,
 )
-from memrise.graph.identity import normalized_entity_name, stable_claim_id
+from memrise.graph.identity import stable_claim_id
 from memrise.graph.schema import ValidatedGraphRelation, prepare_relations, schema_version_label
-from memrise.graph.types import coerce_relation
+from memrise.graph.types import coerce_relation, normalize_entity_name
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.providers import ExtractedGraphRelation
@@ -204,7 +204,7 @@ async def persist_graph_claims(
             namespace_id=projection.namespace_id,
             core_type=resolution.core_type or candidate.node_type,
             canonical_name=resolution.canonical_name or candidate.name.strip(),
-            normalized_name=normalized_entity_name(candidate.name),
+            normalized_name=normalize_entity_name(candidate.name),
             aliases=(candidate.name.strip(),),
             user_id=memory.identity.user_id,
             project_id=memory.identity.project_id,

@@ -63,8 +63,6 @@ class JobProcessor:
             request = ConsolidateRequest.model_validate(job.payload)
             await self._session_consolidation.consolidate_session(request, utc_now())
             return
-        if job.type in {JobType.EXPIRE_MEMORIES, JobType.PROCESS_FEEDBACK}:
-            raise UnimplementedJobError(job.type)
         raise UnimplementedJobError(job.type)
 
     async def process_once(self, jobs: JobQueue, *, worker_id: str) -> bool:

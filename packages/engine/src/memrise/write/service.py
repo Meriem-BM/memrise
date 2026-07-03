@@ -80,13 +80,10 @@ class WriteService:
         if existing_stages:
             return await self._resume_extraction(episode, existing_stages, now)
 
-        try:
-            extraction = await self._completion_provider.extract_memories(
-                text=episode.content,
-                context=await self._extraction_context(episode),
-            )
-        except Exception:
-            raise
+        extraction = await self._completion_provider.extract_memories(
+            text=episode.content,
+            context=await self._extraction_context(episode),
+        )
 
         decisions = self._extraction_validation.decisions_for_episode(
             extraction=extraction,

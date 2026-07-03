@@ -1,4 +1,4 @@
-from memrise.runtime.memory import Memory, Memrise
+from memrise.runtime.memory import Memrise
 from memrise.schemas.requests import (
     CaptureEvent,
     CaptureRequest,
@@ -30,7 +30,6 @@ __all__ = [
     "FeedbackResponse",
     "GraphNeighborhoodResponse",
     "JobSummary",
-    "Memory",
     "MemoryExplanation",
     "MemorySummary",
     "Memrise",
