@@ -2,7 +2,24 @@
 
 `Memrise` is a lightweight temporal hybrid memory framework for AI agents. It stores experience as immutable episodes, consolidates durable knowledge into versioned memories, projects accepted memories into a temporal graph, retrieves with lexical/semantic/graph signals, and learns from retrieval outcomes.
 
-It is not a chat app, a multi-agent system, or a GraphRAG product. PostgreSQL is the source of truth for episodes, canonical memories, embeddings, full-text search, graph projection, retrieval traces, feedback, and jobs.
+It is not a chat app, a multi-agent system, or a GraphRAG product. PostgreSQL is the source of truth for episodes, canonical memories, embeddings, full-text search, graph claims, graph projection, retrieval traces, feedback, and jobs.
+
+## Architecture
+
+The diagram below is the target memory lifecycle. Agents reach it through the HTTP API and TypeScript SDK (the **Memory Gateway** in the diagram).
+
+![Memrise memory architecture](docs/memory-architecture.png)
+
+| Diagram section      | What it maps to in this repo                                                                                                                                                                   | Status                                                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Memory write path    | `capture` / `remember` → `WriteService` → importance gate → Qwen extraction → reconciliation → canonical memory versions → graph claims → Apache AGE projection                                | Implemented                                                                                                     |
+| Memory read path     | `retrieve` → scope/lifecycle filters → lexical, semantic, graph, and critical lookup → reciprocal rank fusion → usefulness/confidence ranking → token-budget context packing → retrieval trace | Implemented                                                                                                     |
+| Memory consolidation | `consolidate` job → `SessionConsolidationService`                                                                                                                                              | Partial: replays extraction for session episodes; merge/compress/resolve steps in the diagram are not wired yet |
+| Outcome learning     | `feedback` → usefulness score updates on memories and graph edges                                                                                                                              | Implemented; never mutates factual content or confidence                                                        |
+
+Graph writes are **claims-first**: accepted relations are persisted in PostgreSQL (`graph_entities`, `graph_claims`) and projected into the temporal graph store. Retrieval can seed graph traversal from persisted entities.
+
+## Deployment
 
 ```mermaid
 flowchart LR
@@ -21,13 +38,13 @@ Basic vector memory usually stores mutable chunks and retrieves nearest neighbor
 
 ## Paths
 
-Write path: episode -> candidate extraction -> rule-based reconciliation -> accepted memory version -> embedding/search document -> graph projection.
+Write path: capture experience → immutable episodes → importance gate → extract candidate memories → reconcile (add, reinforce, new version, contest, or ignore) → canonical memory version → embedding/search document → graph claims → temporal graph projection.
 
-Read path: critical lookup -> structured, lexical, semantic, and graph retrieval -> reciprocal rank fusion -> usefulness/confidence/scope adjustments -> context packing -> retrieval trace.
+Read path: scope and lifecycle filter → critical lookup, structured match, lexical search, semantic search, and graph expansion → candidate fusion (RRF) → validity filter → utility-aware ranking → context packer → retrieval trace.
 
-Consolidation: worker jobs merge repeated evidence, resolve corrections, keep scopes separate, preserve source episode IDs, and update graph edges only from accepted memory changes.
+Consolidation: worker jobs replay session extraction today; fuller merge, relationship update, and stale-memory handling in the architecture diagram are planned.
 
-Outcome learning: helpful/unused/harmful feedback adjusts usefulness scores only. It never changes factual content, truth confidence, lifecycle status, or validity intervals.
+Outcome learning: helpful, unused, or harmful feedback adjusts usefulness scores only. It never changes factual content, truth confidence, lifecycle status, or validity intervals.
 
 ## Quick Start
 
@@ -88,6 +105,7 @@ The pre-commit hook runs staged-file-aware Ruff, Prettier, ESLint/typecheck chec
 
 ## Repository Map
 
+- `docs`: architecture diagrams and design references.
 - `infra`: Docker Compose stack, Dockerfiles, and PostgreSQL extension bootstrap.
 - `packages/engine`: Python core models, ports, integrations, services, Alembic migration.
 - `apps/api`: FastAPI HTTP translation layer.
