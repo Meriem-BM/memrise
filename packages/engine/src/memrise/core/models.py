@@ -100,6 +100,7 @@ class MemoryVersion:
     version_number: int
     content: str
     structured_value: JsonObject
+    applicability: JsonObject
     status: MemoryStatus
     confidence: float
     importance: float

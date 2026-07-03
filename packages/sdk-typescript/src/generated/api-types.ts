@@ -406,6 +406,19 @@ export interface components {
             /** Project Id */
             project_id: string | null;
         };
+        /** GraphRelationInput */
+        GraphRelationInput: {
+            /** Relation */
+            relation: string;
+            /** Source */
+            source: string;
+            /** Source Type */
+            source_type?: string | null;
+            /** Target */
+            target: string;
+            /** Target Type */
+            target_type?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -524,11 +537,7 @@ export interface components {
             /** @default normal */
             criticality: components["schemas"]["Criticality"];
             /** Graph Relations */
-            graph_relations?: [
-                string,
-                string,
-                string
-            ][];
+            graph_relations?: components["schemas"]["GraphRelationInput"][];
             /**
              * Importance
              * @default 0.7

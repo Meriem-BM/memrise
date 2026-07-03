@@ -193,7 +193,7 @@ class Memrise:
         applicability: dict[str, Any] | None = None,
         source_episode_content: str | None = None,
         source_episode_metadata: dict[str, Any] | None = None,
-        graph_relations: list[tuple[str, str, str]] | None = None,
+        graph_relations: list[dict[str, object]] | None = None,
         valid_until: str | None = None,
     ) -> RememberResponse:
         request = RememberRequest.model_validate(
@@ -254,8 +254,14 @@ class Memrise:
             valid_until=request.valid_until,
             evidence_quote=request.source_episode_content or request.content,
             graph_relations=[
-                ExtractedGraphRelation(source=source, relation=relation, target=target)
-                for source, relation, target in request.graph_relations
+                ExtractedGraphRelation(
+                    source=relation.source,
+                    relation=relation.relation,
+                    target=relation.target,
+                    source_type=relation.source_type,
+                    target_type=relation.target_type,
+                )
+                for relation in request.graph_relations
             ],
         )
         embedding = await self._embedding_provider.embed(request.content)

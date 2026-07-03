@@ -55,6 +55,16 @@ class RetrieveRequest(BaseModel):
     graph_hops: int = Field(default=1, ge=0, le=2)
 
 
+class GraphRelationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = Field(min_length=1, max_length=256)
+    relation: str = Field(min_length=1, max_length=64)
+    target: str = Field(min_length=1, max_length=256)
+    source_type: str | None = Field(default=None, max_length=64)
+    target_type: str | None = Field(default=None, max_length=64)
+
+
 class RememberRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -73,8 +83,30 @@ class RememberRequest(BaseModel):
     applicability: dict[str, Any] = Field(default_factory=dict)
     source_episode_content: str | None = Field(default=None, max_length=50_000)
     source_episode_metadata: dict[str, Any] = Field(default_factory=dict)
-    graph_relations: list[tuple[str, str, str]] = Field(default_factory=list, max_length=20)
+    graph_relations: list[GraphRelationInput] = Field(default_factory=list, max_length=20)
     valid_until: str | None = Field(default=None, max_length=64)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_graph_relations(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        relations = value.get("graph_relations")
+        if not isinstance(relations, list):
+            return value
+        normalized: list[object] = []
+        for relation in relations:
+            if isinstance(relation, (list, tuple)) and len(relation) == 3:
+                normalized.append(
+                    {
+                        "source": relation[0],
+                        "relation": relation[1],
+                        "target": relation[2],
+                    }
+                )
+            else:
+                normalized.append(relation)
+        return {**value, "graph_relations": normalized}
 
 
 class FeedbackRequest(BaseModel):

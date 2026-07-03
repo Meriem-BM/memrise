@@ -33,7 +33,13 @@ Return JSON only. The JSON must validate against this schema:
 "evidence_role": "stated | corrected | observed | inferred",
 "applicability": {},
 "graph_relations": [
-{"source": "entity", "relation": "USES", "target": "entity"}
+{
+"source": "entity name",
+"source_type": "Person | Project | Organization | Technology | Component | Concept | Task",
+"relation": "USES",
+"target": "entity name",
+"target_type": "Person | Project | Organization | Technology | Component | Concept | Task"
+}
 ],
 "search_text": "identifiers, aliases, and exact terms useful for lexical search",
 "embedding_text": "semantic text to embed for this memory"
@@ -73,6 +79,11 @@ Candidate rules:
   subject/key/content/applicability. Do not merge unrelated scopes.
 - Do not emit graph relations unless directly supported by an accepted
   candidate.
+- Every graph relation must include `source_type` and `target_type` using the
+  ontology labels: Person, Project, Organization, Technology, Component,
+  Concept, Task.
 - Use only these graph relations: WORKS_ON, USES, DEPENDS_ON, PREFERS,
   BELONGS_TO, REPLACED, CAUSED, BLOCKED_BY, DEPLOYS_ON, RELATED_TO.
+- Optional `applicability.graph_entity_types` can map entity names to node
+  types when a memory mentions several entities.
 - Avoid explanatory text, markdown, or thinking output. JSON only.

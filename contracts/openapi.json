@@ -476,6 +476,56 @@
         "title": "GraphNodeSummary",
         "type": "object"
       },
+      "GraphRelationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "relation": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Relation",
+            "type": "string"
+          },
+          "source": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Source",
+            "type": "string"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          },
+          "target": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Type"
+          }
+        },
+        "required": ["source", "relation", "target"],
+        "title": "GraphRelationInput",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -764,20 +814,7 @@
           },
           "graph_relations": {
             "items": {
-              "maxItems": 3,
-              "minItems": 3,
-              "prefixItems": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                }
-              ],
-              "type": "array"
+              "$ref": "#/components/schemas/GraphRelationInput"
             },
             "maxItems": 20,
             "title": "Graph Relations",

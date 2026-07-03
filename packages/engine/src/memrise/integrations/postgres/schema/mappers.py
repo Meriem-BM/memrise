@@ -63,6 +63,7 @@ def canonical_from_rows(memory: MemoryRow, version: MemoryVersionRow) -> Canonic
         version_number=version.version_number,
         content=version.content,
         structured_value=dict(version.structured_value),
+        applicability=dict(version.applicability),
         status=MemoryStatus(version.status),
         confidence=version.confidence,
         importance=version.importance,

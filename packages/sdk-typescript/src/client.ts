@@ -56,6 +56,7 @@ export type {
   HealthReadyResponse,
   MemriseClientOptions,
   MemoryClientOptions,
+  GraphRelationInput,
   RememberInput,
   RetrievalTraceSummary,
   RetrieveInput,

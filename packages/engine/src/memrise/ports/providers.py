@@ -48,6 +48,16 @@ class ExtractedGraphRelation(BaseModel):
     source: str = Field(min_length=1, max_length=256)
     relation: str = Field(min_length=1, max_length=64)
     target: str = Field(min_length=1, max_length=256)
+    source_type: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Apache AGE node label, e.g. Person, Project, Technology.",
+    )
+    target_type: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Apache AGE node label, e.g. Person, Project, Technology.",
+    )
 
 
 class EpisodeClassification(BaseModel):

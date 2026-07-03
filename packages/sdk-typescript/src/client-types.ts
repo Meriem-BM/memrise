@@ -20,6 +20,14 @@ export interface CaptureInput {
   events: CaptureEventInput[];
 }
 
+export interface GraphRelationInput {
+  source: string;
+  relation: string;
+  target: string;
+  sourceType?: string | null;
+  targetType?: string | null;
+}
+
 export interface RememberInput {
   namespaceId: string;
   agentId: string;
@@ -36,7 +44,7 @@ export interface RememberInput {
   applicability?: Record<string, unknown>;
   sourceEpisodeContent?: string;
   sourceEpisodeMetadata?: Record<string, unknown>;
-  graphRelations?: [string, string, string][];
+  graphRelations?: GraphRelationInput[];
   validUntil?: string;
 }
 

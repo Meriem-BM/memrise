@@ -1,16 +1,8 @@
 from memrise.core.graph import GraphEdgeCandidate, GraphNodeCandidate, GraphProjection
 from memrise.core.models import CanonicalMemory
+from memrise.graph.entity_typing import GraphEndpointRole, resolve_graph_node_type
 from memrise.graph.ontology import NodeType, ensure_allowed_relation, normalize_entity_name
 from memrise.ports.providers import ExtractedGraphRelation
-
-
-def _infer_node_type(name: str) -> NodeType:
-    lowered = name.lower()
-    if lowered in {"atlas", "memrise"} or lowered.endswith(" project"):
-        return NodeType.PROJECT
-    if lowered in {"pnpm", "npm", "postgresql", "postgres", "redis", "qwen"}:
-        return NodeType.TECHNOLOGY
-    return NodeType.CONCEPT
 
 
 def build_graph_projection(
@@ -29,15 +21,22 @@ def build_graph_projection(
 
     for relation in relations:
         relation_type = ensure_allowed_relation(relation.relation)
-        for temporary_id, name in (
-            (relation.source, relation.source),
-            (relation.target, relation.target),
-        ):
+        endpoint_specs: tuple[tuple[str, str | None, GraphEndpointRole], ...] = (
+            (relation.source, relation.source_type, "source"),
+            (relation.target, relation.target_type, "target"),
+        )
+        for temporary_id, declared_type, role in endpoint_specs:
             if temporary_id not in node_candidates:
+                node_type = resolve_graph_node_type(
+                    name=temporary_id,
+                    declared_type=declared_type,
+                    memory=memory,
+                    role=role,
+                )
                 node_candidates[temporary_id] = GraphNodeCandidate(
                     temporary_id=temporary_id,
-                    node_type=_infer_node_type(name).value,
-                    name=name.strip(),
+                    node_type=node_type.value,
+                    name=temporary_id.strip(),
                 )
         edge_candidates.append(
             GraphEdgeCandidate(

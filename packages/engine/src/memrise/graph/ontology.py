@@ -26,9 +26,29 @@ class RelationType(StrEnum):
     RELATED_TO = "RELATED_TO"
 
 
+def node_type_values() -> tuple[str, ...]:
+    return tuple(item.value for item in NodeType)
+
+
+def coerce_node_type(value: str | None, *, default: NodeType = NodeType.CONCEPT) -> NodeType:
+    if value is None:
+        return default
+    stripped = value.strip()
+    if not stripped:
+        return default
+    try:
+        return NodeType(stripped)
+    except ValueError:
+        normalized = stripped.casefold()
+        for candidate in NodeType:
+            if candidate.value.casefold() == normalized:
+                return candidate
+        return default
+
+
 def ensure_allowed_node_type(value: str) -> NodeType:
     try:
-        return NodeType(value)
+        return NodeType(value.strip())
     except ValueError:
         msg = f"unsupported graph node type: {value}"
         raise ValueError(msg) from None

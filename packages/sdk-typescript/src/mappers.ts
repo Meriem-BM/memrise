@@ -62,7 +62,15 @@ export function toRememberBody(input: RememberInput): RememberBody {
     applicability: input.applicability,
     source_episode_content: input.sourceEpisodeContent,
     source_episode_metadata: input.sourceEpisodeMetadata,
-    graph_relations: input.graphRelations,
+    graph_relations: input.graphRelations?.map((relation) =>
+      stripUndefined({
+        source: relation.source,
+        relation: relation.relation,
+        target: relation.target,
+        source_type: relation.sourceType,
+        target_type: relation.targetType,
+      }),
+    ),
     valid_until: input.validUntil,
   }) as RememberBody;
 }
