@@ -1,5 +1,6 @@
 from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.integrations.apache_age.repository import AgeGraphRepository
+from memrise.integrations.postgres.job_queue import PostgresJobQueue
 from memrise.integrations.postgres.repositories import PostgresMemoryStore
 from memrise.integrations.postgres.session import make_session_factory
 from memrise.integrations.qwen.providers import QwenCompletionProvider, QwenEmbeddingProvider
@@ -17,6 +18,7 @@ def build_postgres_memory(settings: MemorySettings) -> Memrise:
     session_factory = make_session_factory(settings.database_url)
     id_generator = UuidGenerator()
     store = PostgresMemoryStore(session_factory, id_generator=id_generator)
+    jobs = PostgresJobQueue(session_factory, id_generator=id_generator)
     graph_repository = AgeGraphRepository(
         session_factory,
         id_generator=id_generator,
@@ -26,7 +28,7 @@ def build_postgres_memory(settings: MemorySettings) -> Memrise:
     embeddings = QwenEmbeddingProvider(settings)
     return Memrise(
         store=store,
-        jobs=store,
+        jobs=jobs,
         graph_repository=graph_repository,
         graph_projection=GraphProjectionService(
             graph_repository=graph_repository,

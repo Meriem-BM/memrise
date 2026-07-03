@@ -13,6 +13,7 @@ from tests.mocks.providers import (
 from memrise.consolidation.graph_projection import GraphProjectionService
 from memrise.core.enums import Criticality, EpisodeKind, MemoryStatus, MemoryType
 from memrise.core.models import Scope
+from memrise.integrations.postgres.job_queue import PostgresJobQueue
 from memrise.integrations.postgres.repositories import PostgresMemoryStore
 from memrise.integrations.postgres.session import make_session_factory
 from memrise.learning.policy import DefaultFeedbackPolicy
@@ -33,6 +34,7 @@ def build_mock_memory() -> tuple[Memrise, MockCompletionProvider]:
     session_factory = make_session_factory(url)
     id_generator = UuidGenerator()
     store = PostgresMemoryStore(session_factory, id_generator=id_generator)
+    jobs = PostgresJobQueue(session_factory, id_generator=id_generator)
     completion = MockCompletionProvider(
         result=single_candidate_result(
             ExtractedMemoryCandidate(
@@ -50,7 +52,7 @@ def build_mock_memory() -> tuple[Memrise, MockCompletionProvider]:
     )
     memory = Memrise(
         store=store,
-        jobs=store,
+        jobs=jobs,
         graph_repository=GraphRepositoryStub(available=False),
         graph_projection=GraphProjectionService(
             graph_repository=GraphRepositoryStub(available=False)
@@ -81,7 +83,10 @@ async def test_capture_uses_mock_completion_provider() -> None:
     )
     assert capture.episode_ids
     assert capture.job_ids
-    assert await memory.process_job_once("mock-worker")
+    job = await memory.jobs.get_job(capture.job_ids[0])
+    assert job is not None
+    await memory.process_job(job)
+    await memory.jobs.complete(job.id)
     assert completion.captured
     assert completion.captured[0][0] == DEMO_EPISODE
     assert completion.captured[0][1]["project_id"] == "atlas"

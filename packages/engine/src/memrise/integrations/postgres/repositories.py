@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from memrise.core.enums import CandidateStageStatus, JobType
+from memrise.core.enums import CandidateStageStatus
 from memrise.core.models import (
     ApplyCandidateOutcome,
-    BackgroundJob,
     CanonicalMemory,
     Episode,
     EpisodeSaveOutcome,
@@ -19,7 +18,6 @@ from memrise.integrations.postgres.episode_repository import PostgresEpisodeRepo
 from memrise.integrations.postgres.graph_projection_repository import (
     PostgresGraphProjectionRepository,
 )
-from memrise.integrations.postgres.job_queue import PostgresJobQueue
 from memrise.integrations.postgres.memory_repository import PostgresMemoryRepository
 from memrise.integrations.postgres.retrieval_repository import PostgresRetrievalRepository
 from memrise.learning.apply import MemoryApplyService
@@ -49,7 +47,6 @@ class PostgresMemoryStore:
             session_factory,
             id_generator=id_generator,
         )
-        self._jobs = PostgresJobQueue(session_factory, id_generator=id_generator)
 
     async def save_episode(self, episode: Episode) -> EpisodeSaveOutcome:
         return await self._episodes.save_episode(episode)
@@ -179,31 +176,3 @@ class PostgresMemoryStore:
             namespace_id=namespace_id,
             limit=limit,
         )
-
-    async def enqueue(
-        self,
-        *,
-        job_type: JobType,
-        payload: dict[str, object],
-        dedupe_key: str | None = None,
-    ) -> str:
-        return await self._jobs.enqueue(
-            job_type=job_type,
-            payload=payload,
-            dedupe_key=dedupe_key,
-        )
-
-    async def claim_next(self, *, worker_id: str) -> BackgroundJob | None:
-        return await self._jobs.claim_next(worker_id=worker_id)
-
-    async def get_job(self, job_id: str) -> BackgroundJob | None:
-        return await self._jobs.get_job(job_id)
-
-    async def find_job_id_by_dedupe_key(self, dedupe_key: str) -> str | None:
-        return await self._jobs.find_job_id_by_dedupe_key(dedupe_key)
-
-    async def complete(self, job_id: str) -> None:
-        await self._jobs.complete(job_id)
-
-    async def fail(self, job_id: str, error: str) -> None:
-        await self._jobs.fail(job_id, error)
