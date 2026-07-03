@@ -48,6 +48,17 @@ def _claim_from_row(row: GraphClaimRow) -> GraphClaim:
     )
 
 
+def merge_aliases(existing: list[str] | None, incoming: tuple[str, ...]) -> list[str]:
+    """Union alias lists, preserving first-seen order and skipping blanks."""
+    merged: dict[str, str] = {}
+    for alias in [*(existing or []), *incoming]:
+        cleaned = alias.strip()
+        if not cleaned:
+            continue
+        merged.setdefault(normalize_entity_name(cleaned), cleaned)
+    return list(merged.values())
+
+
 class PostgresGraphClaimStore:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -83,27 +94,34 @@ class PostgresGraphClaimStore:
                     project_id=project_id,
                     created_at=now,
                 )
-                .on_conflict_do_update(
+                .on_conflict_do_nothing(
                     index_elements=["namespace_id", "core_type", "normalized_name"],
-                    set_={
-                        "canonical_name": canonical_name,
-                        "aliases": list(aliases),
-                        "domain_type": domain_type,
-                        "stable_source_id": stable_source_id,
-                        "user_id": user_id,
-                        "project_id": project_id,
-                    },
                 )
             )
             row = (
                 await session.scalars(
-                    select(GraphEntityRow).where(
+                    select(GraphEntityRow)
+                    .where(
                         GraphEntityRow.namespace_id == namespace_id,
                         GraphEntityRow.core_type == core_type,
                         GraphEntityRow.normalized_name == normalized_name,
                     )
+                    .with_for_update()
                 )
             ).one()
+            # Merge instead of overwrite: aliases accumulate across mentions, and
+            # identity fields set by earlier mentions are never cleared by later
+            # mentions that omit them.
+            row.canonical_name = canonical_name
+            row.aliases = merge_aliases(row.aliases, aliases)
+            if domain_type is not None:
+                row.domain_type = domain_type
+            if stable_source_id is not None:
+                row.stable_source_id = stable_source_id
+            if user_id is not None:
+                row.user_id = user_id
+            if project_id is not None:
+                row.project_id = project_id
             return _entity_from_row(row)
 
     async def get_entity_by_identity(

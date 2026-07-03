@@ -180,3 +180,39 @@ def test_build_graph_projection_from_claims_attaches_claim_ids() -> None:
         projection=projection,
     )
     assert rebuilt.edges[0].claim_id == claim_id
+
+
+async def test_upsert_entity_unions_aliases_and_keeps_identity_fields() -> None:
+    store = GraphClaimStoreStub()
+    first = await store.upsert_entity(
+        entity_id="gent-1",
+        namespace_id="ns",
+        core_type="Technology",
+        canonical_name="PostgreSQL",
+        normalized_name="postgresql",
+        aliases=("PostgreSQL",),
+        stable_source_id="src-1",
+        user_id="user-1",
+    )
+    merged = await store.upsert_entity(
+        entity_id="gent-1",
+        namespace_id="ns",
+        core_type="Technology",
+        canonical_name="Postgres",
+        normalized_name="postgresql",
+        aliases=("Postgres", "postgresql"),
+    )
+
+    assert merged.id == first.id
+    assert set(merged.aliases) == {"PostgreSQL", "Postgres"}
+    assert merged.stable_source_id == "src-1"
+    assert merged.user_id == "user-1"
+    assert merged.canonical_name == "Postgres"
+
+
+def test_merge_aliases_dedupes_case_insensitively_and_keeps_order() -> None:
+    from memrise.integrations.postgres.store.graph_claims import merge_aliases
+
+    merged = merge_aliases(["PostgreSQL", "pg"], ("postgresql", " Postgres ", "", "PG"))
+
+    assert merged == ["PostgreSQL", "pg", "Postgres"]

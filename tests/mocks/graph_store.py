@@ -5,6 +5,7 @@ from memrise.core.enums import GraphClaimStatus
 from memrise.core.graph import GraphClaim, GraphEntity
 from memrise.core.time import utc_now
 from memrise.graph.types import normalize_entity_name
+from memrise.integrations.postgres.store.graph_claims import merge_aliases
 
 
 @dataclass
@@ -32,7 +33,20 @@ class GraphClaimStoreStub:
         identity = (namespace_id, core_type, normalized_name)
         existing_id = self.entities_by_identity.get(identity)
         if existing_id is not None:
-            return self.entities[existing_id]
+            existing = self.entities[existing_id]
+            merged = replace(
+                existing,
+                canonical_name=canonical_name,
+                aliases=tuple(merge_aliases(list(existing.aliases), aliases)),
+                domain_type=domain_type if domain_type is not None else existing.domain_type,
+                stable_source_id=(
+                    stable_source_id if stable_source_id is not None else existing.stable_source_id
+                ),
+                user_id=user_id if user_id is not None else existing.user_id,
+                project_id=project_id if project_id is not None else existing.project_id,
+            )
+            self.entities[existing_id] = merged
+            return merged
         entity = GraphEntity(
             id=entity_id,
             namespace_id=namespace_id,
