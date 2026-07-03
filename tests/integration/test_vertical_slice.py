@@ -33,11 +33,17 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
                 await connection.execute(
                     text(
                         "select indexname from pg_indexes "
-                        "where tablename in ('memory_versions','jobs') "
+                        "where tablename in ("
+                        "'memories','memory_versions','jobs','memory_candidates'"
+                        ") "
                         "and indexname in ("
                         "'ix_memory_versions_embedding_hnsw',"
                         "'ix_memory_versions_search_gin',"
-                        "'ix_jobs_claim'"
+                        "'ix_jobs_claim',"
+                        "'ix_memory_candidates_episode',"
+                        "'ix_memory_candidates_scope_status',"
+                        "'uq_memories_logical_identity',"
+                        "'uq_memory_versions_version_number'"
                         ")"
                     )
                 )
@@ -49,6 +55,10 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
             "ix_memory_versions_embedding_hnsw",
             "ix_memory_versions_search_gin",
             "ix_jobs_claim",
+            "ix_memory_candidates_episode",
+            "ix_memory_candidates_scope_status",
+            "uq_memories_logical_identity",
+            "uq_memory_versions_version_number",
         } <= set(indexes)
     await engine.dispose()
 
@@ -72,6 +82,17 @@ async def test_vertical_slice_end_to_end() -> None:
     assert capture.episode_ids
     assert capture.job_ids
     assert await memory.process_job_once("it-worker")
+    engine = create_async_engine(database_url())
+    async with engine.connect() as connection:
+        promoted_candidates = await connection.scalar(
+            text(
+                "select count(*) from memory_candidates "
+                "where namespace_id = 'it' and status = 'promoted'"
+            )
+        )
+    await engine.dispose()
+    assert promoted_candidates is not None
+    assert promoted_candidates >= 1
 
     result = await memory.retrieve(
         namespace_id="it",
@@ -96,7 +117,8 @@ async def test_vertical_slice_end_to_end() -> None:
         limit=10,
     )
     assert lockfile.critical
-    assert "Never edit" in lockfile.context
+    assert "lockfile" in lockfile.context.lower()
+    assert "edit" in lockfile.context.lower()
 
     returned = result.memories[0]
     feedback = await memory.feedback(

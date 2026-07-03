@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from memrise.core.enums import (
+    CandidateStageStatus,
     Criticality,
     EpisodeKind,
     FeedbackOutcome,
@@ -49,9 +50,22 @@ class Episode:
     user_id: str | None = None
     project_id: str | None = None
     metadata: JsonObject = field(default_factory=dict)
+    idempotency_key: str | None = None
 
     def __post_init__(self) -> None:
         require_utc(self.created_at)
+
+
+@dataclass(frozen=True, slots=True)
+class EpisodeSaveOutcome:
+    episode: Episode
+    created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyCandidateOutcome:
+    memory: CanonicalMemory | None = None
+    skip_reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +134,36 @@ class MemorySource:
     memory_version_id: str
     episode_id: str
     relation: str
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryCandidateStage:
+    id: str
+    episode_id: str
+    namespace_id: str
+    agent_id: str
+    candidate_index: int
+    schema_version: str
+    model_name: str
+    prompt_version: str
+    classification: JsonObject
+    candidate: JsonObject
+    status: CandidateStageStatus
+    promotion_score: float
+    created_at: datetime
+    updated_at: datetime
+    user_id: str | None = None
+    project_id: str | None = None
+    memory_type: str | None = None
+    subject: str | None = None
+    key: str | None = None
+    evidence_quote: str | None = None
+    rejection_reason: str | None = None
+    memory_version_id: str | None = None
+
+    def __post_init__(self) -> None:
+        require_utc(self.created_at)
+        require_utc(self.updated_at)
 
 
 @dataclass(frozen=True, slots=True)

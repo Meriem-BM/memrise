@@ -3,8 +3,12 @@ from dataclasses import dataclass, field
 from memrise.ports.providers import (
     CompletionProvider,
     EmbeddingProvider,
+    EpisodeClassification,
+    EpisodeDurability,
     ExtractedMemoryCandidate,
     ExtractionResult,
+    KnowledgeClass,
+    Sensitivity,
 )
 
 
@@ -29,7 +33,29 @@ class MockEmbeddingProvider(EmbeddingProvider):
 
 def single_candidate_result(candidate: ExtractedMemoryCandidate) -> ExtractionResult:
     return ExtractionResult(
+        classification=EpisodeClassification(
+            should_extract=True,
+            durability=EpisodeDurability.DURABLE,
+            knowledge_classes=[KnowledgeClass(candidate.type.value)],
+            reason_codes=["test_candidate"],
+            sensitivity=Sensitivity.NORMAL,
+        ),
         candidates=[candidate],
         model_name="mock",
-        prompt_version="mock-v1",
+        prompt_version="memory_extraction_v1",
+    )
+
+
+def no_memory_result(reason: str = "noise") -> ExtractionResult:
+    return ExtractionResult(
+        classification=EpisodeClassification(
+            should_extract=False,
+            durability=EpisodeDurability.NONE,
+            knowledge_classes=[KnowledgeClass.NOISE],
+            reason_codes=[reason],
+            sensitivity=Sensitivity.NORMAL,
+        ),
+        candidates=[],
+        model_name="mock",
+        prompt_version="memory_extraction_v1",
     )

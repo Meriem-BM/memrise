@@ -43,6 +43,13 @@ class MemoryOperation(StrEnum):
     NOOP = "NOOP"
 
 
+class CandidateStageStatus(StrEnum):
+    STAGED = "staged"
+    PROMOTED = "promoted"
+    REJECTED = "rejected"
+    FAILED = "failed"
+
+
 class GraphEdgeStatus(StrEnum):
     ACTIVE = "active"
     SUPERSEDED = "superseded"

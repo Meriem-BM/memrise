@@ -41,6 +41,20 @@
             "title": "Events",
             "type": "array"
           },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional replay key scoped to namespace_id. Reusing the key returns the original episode and extract job when the capture payload matches. A different payload with the same key is rejected with HTTP 409.",
+            "title": "Idempotency Key"
+          },
           "namespace_id": {
             "maxLength": 128,
             "minLength": 1,

@@ -229,7 +229,14 @@ class RetrievalService:
 
     def _is_applicable(self, memory: CanonicalMemory) -> bool:
         version = memory.version
-        return version.status == MemoryStatus.ACTIVE
+        now = utc_now()
+        if version.status != MemoryStatus.ACTIVE:
+            return False
+        if version.valid_from > now:
+            return False
+        if version.valid_until is not None and version.valid_until <= now:
+            return False
+        return True
 
     def _select_critical(
         self,

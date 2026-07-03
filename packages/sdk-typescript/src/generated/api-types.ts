@@ -263,6 +263,11 @@ export interface components {
             agent_id: string;
             /** Events */
             events: components["schemas"]["CaptureEvent"][];
+            /**
+             * Idempotency Key
+             * @description Optional replay key scoped to namespace_id. Reusing the key returns the original episode and extract job when the capture payload matches. A different payload with the same key is rejected with HTTP 409.
+             */
+            idempotency_key?: string | null;
             /** Namespace Id */
             namespace_id: string;
             /** Project Id */

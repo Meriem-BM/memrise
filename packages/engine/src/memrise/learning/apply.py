@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from memrise.core.enums import MemoryOperation, MemoryStatus
 from memrise.core.models import CanonicalMemory, Feedback, Scope
 from memrise.learning.policy import clamp_usefulness
-from memrise.learning.reconciliation import Reconciler
+from memrise.learning.reconciliation import Reconciler, reconcile_skip_reason_from_text
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import ExtractedMemoryCandidate
 from memrise.ports.repositories import FeedbackPolicy
@@ -118,6 +118,16 @@ class MemoryApplyService:
                 now=now,
             ),
         )
+
+    def noop_skip_reason(
+        self,
+        *,
+        candidate: ExtractedMemoryCandidate,
+        existing: CanonicalMemory | None,
+        now: datetime,
+    ) -> str:
+        decision = self._reconciler.decide(candidate=candidate, existing=existing, now=now)
+        return reconcile_skip_reason_from_text(decision.reason)
 
     def new_version_id(self) -> str:
         return self._ids.new_id("memv")

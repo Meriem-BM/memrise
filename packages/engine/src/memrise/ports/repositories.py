@@ -1,11 +1,14 @@
 from typing import Protocol
 
-from memrise.core.enums import FeedbackOutcome, FeedbackSource, JobType
+from memrise.core.enums import CandidateStageStatus, FeedbackOutcome, FeedbackSource, JobType
 from memrise.core.models import (
+    ApplyCandidateOutcome,
     BackgroundJob,
     CanonicalMemory,
     Episode,
+    EpisodeSaveOutcome,
     Feedback,
+    MemoryCandidateStage,
     MemorySource,
     RetrievalItem,
     RetrievalTrace,
@@ -15,7 +18,7 @@ from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandi
 
 
 class MemoryStore(Protocol):
-    async def save_episode(self, episode: Episode) -> None: ...
+    async def save_episode(self, episode: Episode) -> EpisodeSaveOutcome: ...
 
     async def get_episode(self, episode_id: str) -> Episode | None: ...
 
@@ -53,7 +56,24 @@ class MemoryStore(Protocol):
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
         embedding: list[float],
-    ) -> CanonicalMemory | None: ...
+    ) -> ApplyCandidateOutcome: ...
+
+    async def list_candidate_stages_for_episode(
+        self, episode_id: str
+    ) -> list[MemoryCandidateStage]: ...
+
+    async def get_candidate_stage(self, candidate_stage_id: str) -> MemoryCandidateStage | None: ...
+
+    async def save_candidate_stage(self, stage: MemoryCandidateStage) -> str: ...
+
+    async def update_candidate_stage(
+        self,
+        candidate_stage_id: str,
+        *,
+        status: CandidateStageStatus,
+        memory_version_id: str | None = None,
+        rejection_reason: str | None = None,
+    ) -> None: ...
 
     async def get_memory_version_by_id(self, memory_version_id: str) -> CanonicalMemory | None: ...
 
@@ -89,6 +109,8 @@ class JobQueue(Protocol):
         payload: dict[str, object],
         dedupe_key: str | None = None,
     ) -> str: ...
+
+    async def find_job_id_by_dedupe_key(self, dedupe_key: str) -> str | None: ...
 
     async def claim_next(self, *, worker_id: str) -> BackgroundJob | None: ...
 

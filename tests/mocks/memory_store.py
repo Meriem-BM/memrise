@@ -1,13 +1,24 @@
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
-from memrise.core.enums import Criticality, JobStatus, JobType, MemoryStatus, MemoryType
+from memrise.core.enums import (
+    CandidateStageStatus,
+    Criticality,
+    JobStatus,
+    JobType,
+    MemoryStatus,
+    MemoryType,
+)
+from memrise.core.errors import CandidateStageNotFoundError, IdempotencyConflictError
 from memrise.core.models import (
+    ApplyCandidateOutcome,
     BackgroundJob,
     CanonicalMemory,
     Episode,
+    EpisodeSaveOutcome,
     Feedback,
+    MemoryCandidateStage,
     MemoryIdentity,
     MemorySource,
     MemoryVersion,
@@ -15,9 +26,14 @@ from memrise.core.models import (
     RetrievalTrace,
     Scope,
 )
+from memrise.core.text import normalize_lookup
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.policy import DefaultFeedbackPolicy
-from memrise.learning.reconciliation import Reconciler
+from memrise.learning.reconciliation import (
+    Reconciler,
+    candidate_has_explicit_change,
+    same_memory_value,
+)
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import ExtractedGraphRelation, ExtractedMemoryCandidate
 from memrise.runtime.ids import UuidGenerator
@@ -44,6 +60,10 @@ def make_memory(
     criticality: Criticality = Criticality.NORMAL,
     status: MemoryStatus = MemoryStatus.ACTIVE,
     version_number: int = 1,
+    structured_value: dict[str, object] | None = None,
+    valid_until: datetime | None = None,
+    supersedes_version_id: str | None = None,
+    superseded_by_version_id: str | None = None,
 ) -> CanonicalMemory:
     now = _utc_now()
     identity = MemoryIdentity(
@@ -62,13 +82,16 @@ def make_memory(
         memory_id=memory_id,
         version_number=version_number,
         content=content,
-        structured_value={},
+        structured_value=structured_value or {},
         status=status,
         confidence=confidence,
         importance=importance,
         criticality=criticality,
         usefulness_score=usefulness_score,
         valid_from=now,
+        valid_until=valid_until,
+        supersedes_version_id=supersedes_version_id,
+        superseded_by_version_id=superseded_by_version_id,
         created_at=now,
     )
     return CanonicalMemory(identity=identity, version=version)
@@ -84,6 +107,7 @@ class MemoryStoreStub:
     feedback: list[Feedback] = field(default_factory=list)
     jobs: list[BackgroundJob] = field(default_factory=list)
     graph_projection_jobs: list[str] = field(default_factory=list)
+    candidate_stages: dict[str, MemoryCandidateStage] = field(default_factory=dict)
     id_generator: IdGenerator = field(default_factory=UuidGenerator)
 
     def _apply_service(self) -> MemoryApplyService:
@@ -93,8 +117,32 @@ class MemoryStoreStub:
             id_generator=self.id_generator,
         )
 
-    async def save_episode(self, episode: Episode) -> None:
+    async def save_episode(self, episode: Episode) -> EpisodeSaveOutcome:
+        if episode.idempotency_key is not None:
+            for existing in self.episodes.values():
+                if (
+                    existing.namespace_id == episode.namespace_id
+                    and existing.idempotency_key == episode.idempotency_key
+                ):
+                    if (
+                        existing.kind != episode.kind
+                        or existing.content != episode.content
+                        or existing.agent_id != episode.agent_id
+                        or existing.session_id != episode.session_id
+                        or existing.user_id != episode.user_id
+                        or existing.project_id != episode.project_id
+                        or existing.metadata != episode.metadata
+                    ):
+                        msg = (
+                            "idempotency key already used with a different capture payload: "
+                            f"{episode.idempotency_key!r}"
+                        )
+                        raise IdempotencyConflictError(msg)
+                    return EpisodeSaveOutcome(episode=existing, created=False)
+        if episode.id in self.episodes:
+            return EpisodeSaveOutcome(episode=self.episodes[episode.id], created=False)
         self.episodes[episode.id] = episode
+        return EpisodeSaveOutcome(episode=episode, created=True)
 
     async def get_episode(self, episode_id: str) -> Episode | None:
         return self.episodes.get(episode_id)
@@ -122,7 +170,10 @@ class MemoryStoreStub:
         user_id_is_wildcard: bool = False,
         project_id_is_wildcard: bool = False,
     ) -> list[CanonicalMemory]:
-        del include_contested
+        statuses = {MemoryStatus.ACTIVE}
+        if include_contested:
+            statuses.add(MemoryStatus.CONTESTED)
+        now = _utc_now()
         results: list[CanonicalMemory] = []
         for memory in self.memories:
             identity = memory.identity
@@ -140,7 +191,13 @@ class MemoryStoreStub:
                 and identity.project_id != scope.project_id
             ):
                 continue
-            if memory.version.status == MemoryStatus.ACTIVE:
+            if memory.version.status not in statuses:
+                continue
+            if memory.version.valid_until is not None and memory.version.valid_until <= now:
+                continue
+            if memory.version.valid_from > now:
+                continue
+            if memory.version.status in statuses:
                 results.append(memory)
         return results
 
@@ -154,9 +211,57 @@ class MemoryStoreStub:
         subject: str,
         key: str,
     ) -> CanonicalMemory | None:
-        active = await self.list_active_memories(scope=scope)
+        active = await self.list_active_memories(scope=scope, include_contested=True)
         for memory in active:
-            if memory.identity.subject == subject and memory.identity.key == key:
+            if normalize_lookup(memory.identity.subject) == normalize_lookup(
+                subject
+            ) and normalize_lookup(memory.identity.key) == normalize_lookup(key):
+                return memory
+        return None
+
+    async def _find_latest_memory(
+        self,
+        *,
+        scope: Scope,
+        subject: str,
+        key: str,
+    ) -> CanonicalMemory | None:
+        matches = [
+            memory
+            for memory in self.memories
+            if memory.identity.namespace_id == scope.namespace_id
+            and memory.identity.agent_id == scope.agent_id
+            and memory.identity.user_id == scope.user_id
+            and memory.identity.project_id == scope.project_id
+            and normalize_lookup(memory.identity.subject) == normalize_lookup(subject)
+            and normalize_lookup(memory.identity.key) == normalize_lookup(key)
+        ]
+        matches.sort(key=lambda item: item.version.version_number, reverse=True)
+        return matches[0] if matches else None
+
+    async def _find_matching_historical_memory(
+        self,
+        *,
+        scope: Scope,
+        candidate: ExtractedMemoryCandidate,
+    ) -> CanonicalMemory | None:
+        for memory in self.memories:
+            if memory.version.status not in {
+                MemoryStatus.SUPERSEDED,
+                MemoryStatus.EXPIRED,
+                MemoryStatus.DELETED,
+            }:
+                continue
+            if (
+                memory.identity.namespace_id != scope.namespace_id
+                or memory.identity.agent_id != scope.agent_id
+                or memory.identity.user_id != scope.user_id
+                or memory.identity.project_id != scope.project_id
+                or normalize_lookup(memory.identity.subject) != normalize_lookup(candidate.subject)
+                or normalize_lookup(memory.identity.key) != normalize_lookup(candidate.key)
+            ):
+                continue
+            if same_memory_value(memory, candidate):
                 return memory
         return None
 
@@ -167,12 +272,29 @@ class MemoryStoreStub:
         candidate: ExtractedMemoryCandidate,
         source_episode_ids: list[str],
         embedding: list[float],
-    ) -> CanonicalMemory | None:
+    ) -> ApplyCandidateOutcome:
         existing = await self.find_current_memory(
             scope=scope,
             subject=candidate.subject,
             key=candidate.key,
         )
+        if (
+            existing is not None
+            and not same_memory_value(existing, candidate)
+            and not candidate_has_explicit_change(candidate)
+        ):
+            historical_duplicate = await self._find_matching_historical_memory(
+                scope=scope,
+                candidate=candidate,
+            )
+            if historical_duplicate is not None:
+                return ApplyCandidateOutcome(skip_reason="reconcile:historical_duplicate")
+        if existing is None:
+            existing = await self._find_latest_memory(
+                scope=scope,
+                subject=candidate.subject,
+                key=candidate.key,
+            )
         plan = self._apply_service().plan_candidate(
             scope=scope,
             candidate=candidate,
@@ -182,7 +304,13 @@ class MemoryStoreStub:
             now=_utc_now(),
         )
         if plan is None:
-            return existing
+            return ApplyCandidateOutcome(
+                skip_reason=self._apply_service().noop_skip_reason(
+                    candidate=candidate,
+                    existing=existing,
+                    now=_utc_now(),
+                ),
+            )
         if plan.reinforce is not None and existing is not None:
             updated = make_memory(
                 memory_id=existing.identity.id,
@@ -200,6 +328,10 @@ class MemoryStoreStub:
                 criticality=existing.version.criticality,
                 status=existing.version.status,
                 version_number=existing.version.version_number,
+                structured_value=existing.version.structured_value,
+                valid_until=existing.version.valid_until,
+                supersedes_version_id=existing.version.supersedes_version_id,
+                superseded_by_version_id=existing.version.superseded_by_version_id,
             )
             self.memories = [
                 updated if memory.version.id == existing.version.id else memory
@@ -213,9 +345,9 @@ class MemoryStoreStub:
                         relation="source",
                     )
                 )
-            return updated
+            return ApplyCandidateOutcome(memory=updated)
         if plan.new_version is None:
-            return existing
+            return ApplyCandidateOutcome(skip_reason="reconcile:noop")
         new_version = plan.new_version
         version_id = self._apply_service().new_version_id()
         memory = make_memory(
@@ -234,8 +366,16 @@ class MemoryStoreStub:
             criticality=new_version.candidate.criticality,
             status=new_version.new_version_status,
             version_number=new_version.version_number,
+            structured_value=dict(new_version.candidate.structured_value),
+            valid_until=new_version.valid_until,
+            supersedes_version_id=new_version.supersedes_version_id,
         )
         if new_version.supersede_existing_version_id is not None:
+            superseded_at = (
+                new_version.now
+                if new_version.supersede_existing_status == MemoryStatus.SUPERSEDED
+                else None
+            )
             self.memories = [
                 make_memory(
                     memory_id=item.identity.id,
@@ -253,6 +393,10 @@ class MemoryStoreStub:
                     criticality=item.version.criticality,
                     status=new_version.supersede_existing_status or item.version.status,
                     version_number=item.version.version_number,
+                    structured_value=item.version.structured_value,
+                    valid_until=superseded_at or item.version.valid_until,
+                    supersedes_version_id=item.version.supersedes_version_id,
+                    superseded_by_version_id=version_id,
                 )
                 if item.version.id == new_version.supersede_existing_version_id
                 else item
@@ -267,7 +411,75 @@ class MemoryStoreStub:
                     relation="source",
                 )
             )
-        return memory
+        return ApplyCandidateOutcome(memory=memory)
+
+    async def list_candidate_stages_for_episode(
+        self, episode_id: str
+    ) -> list[MemoryCandidateStage]:
+        stages = [
+            stage for stage in self.candidate_stages.values() if stage.episode_id == episode_id
+        ]
+        stages.sort(key=lambda item: item.candidate_index)
+        return stages
+
+    async def get_candidate_stage(self, candidate_stage_id: str) -> MemoryCandidateStage | None:
+        return self.candidate_stages.get(candidate_stage_id)
+
+    async def save_candidate_stage(self, stage: MemoryCandidateStage) -> str:
+        for existing in self.candidate_stages.values():
+            if (
+                existing.episode_id == stage.episode_id
+                and existing.candidate_index == stage.candidate_index
+            ):
+                if existing.status == CandidateStageStatus.PROMOTED:
+                    self.candidate_stages[existing.id] = replace(
+                        stage,
+                        id=existing.id,
+                        status=existing.status,
+                        memory_version_id=existing.memory_version_id,
+                        rejection_reason=existing.rejection_reason,
+                    )
+                else:
+                    self.candidate_stages[existing.id] = replace(stage, id=existing.id)
+                return existing.id
+        self.candidate_stages[stage.id] = stage
+        return stage.id
+
+    async def update_candidate_stage(
+        self,
+        candidate_stage_id: str,
+        *,
+        status: CandidateStageStatus,
+        memory_version_id: str | None = None,
+        rejection_reason: str | None = None,
+    ) -> None:
+        stage = self.candidate_stages.get(candidate_stage_id)
+        if stage is None:
+            raise CandidateStageNotFoundError(candidate_stage_id)
+        self.candidate_stages[candidate_stage_id] = MemoryCandidateStage(
+            id=stage.id,
+            episode_id=stage.episode_id,
+            namespace_id=stage.namespace_id,
+            agent_id=stage.agent_id,
+            user_id=stage.user_id,
+            project_id=stage.project_id,
+            candidate_index=stage.candidate_index,
+            schema_version=stage.schema_version,
+            model_name=stage.model_name,
+            prompt_version=stage.prompt_version,
+            classification=dict(stage.classification),
+            candidate=dict(stage.candidate),
+            memory_type=stage.memory_type,
+            subject=stage.subject,
+            key=stage.key,
+            evidence_quote=stage.evidence_quote,
+            status=status,
+            promotion_score=stage.promotion_score,
+            rejection_reason=rejection_reason,
+            memory_version_id=memory_version_id,
+            created_at=stage.created_at,
+            updated_at=_utc_now(),
+        )
 
     async def get_memory_version_by_id(self, memory_version_id: str) -> CanonicalMemory | None:
         for memory in self.memories:
@@ -281,7 +493,7 @@ class MemoryStoreStub:
         memory: CanonicalMemory,
         relations: list[ExtractedGraphRelation],
     ) -> str | None:
-        if not relations:
+        if memory.version.status != MemoryStatus.ACTIVE or not relations:
             return None
         job_id = self.id_generator.new_id("job")
         self.graph_projection_jobs.append(job_id)

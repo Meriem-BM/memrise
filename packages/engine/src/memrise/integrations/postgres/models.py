@@ -2,7 +2,19 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    CheckConstraint,
+    Computed,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -28,6 +40,13 @@ class EpisodeRow(Base):
             "'task_result','environment_observation')",
             name="ck_episodes_kind",
         ),
+        Index(
+            "uq_episodes_idempotency_key",
+            "namespace_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
@@ -39,7 +58,7 @@ class EpisodeRow(Base):
     kind: Mapped[str] = mapped_column(String(64))
     content: Mapped[str] = mapped_column(Text)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict)
-    idempotency_key: Mapped[str | None] = mapped_column(String(512), nullable=True, unique=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
@@ -49,6 +68,17 @@ class MemoryRow(Base):
         CheckConstraint(
             "type in ('preference','fact','decision','constraint','goal','lesson')",
             name="ck_memories_type",
+        ),
+        Index(
+            "uq_memories_logical_identity",
+            "namespace_id",
+            "agent_id",
+            "user_id",
+            "project_id",
+            "normalized_subject",
+            "normalized_key",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
         ),
     )
 
@@ -85,6 +115,17 @@ class MemoryVersionRow(Base):
         CheckConstraint(
             "usefulness_score >= 0 and usefulness_score <= 1",
             name="ck_memory_versions_usefulness",
+        ),
+        CheckConstraint("version_number >= 1", name="ck_memory_versions_version_number"),
+        CheckConstraint(
+            "valid_until is null or valid_until > valid_from",
+            name="ck_memory_versions_valid_window",
+        ),
+        Index(
+            "uq_memory_versions_version_number",
+            "memory_id",
+            "version_number",
+            unique=True,
         ),
     )
 
@@ -133,6 +174,51 @@ class MemorySourceRow(Base):
         primary_key=True,
     )
     relation: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+
+class MemoryCandidateRow(Base):
+    __tablename__ = "memory_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "status in ('staged','promoted','rejected','failed')",
+            name="ck_memory_candidates_status",
+        ),
+        CheckConstraint(
+            "promotion_score >= 0 and promotion_score <= 1",
+            name="ck_memory_candidates_promotion_score",
+        ),
+        UniqueConstraint(
+            "episode_id", "candidate_index", name="uq_memory_candidates_episode_index"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    episode_id: Mapped[str] = mapped_column(
+        ForeignKey("episodes.id", ondelete="RESTRICT"), index=True
+    )
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    agent_id: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    project_id: Mapped[str | None] = mapped_column(String(256), nullable=True, index=True)
+    candidate_index: Mapped[int] = mapped_column(Integer)
+    schema_version: Mapped[str] = mapped_column(String(128))
+    model_name: Mapped[str] = mapped_column(String(256))
+    prompt_version: Mapped[str] = mapped_column(String(128))
+    classification: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    candidate: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    memory_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    subject: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    key: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    evidence_quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(64), index=True)
+    promotion_score: Mapped[float] = mapped_column(Float)
+    rejection_reason: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    memory_version_id: Mapped[str | None] = mapped_column(
+        ForeignKey("memory_versions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class RetrievalTraceRow(Base):

@@ -1,6 +1,6 @@
-from typing import Any
+from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from memrise.core.enums import Criticality, EpisodeKind, FeedbackOutcome, FeedbackSource, MemoryType
 
@@ -21,7 +21,24 @@ class CaptureRequest(BaseModel):
     session_id: str = Field(min_length=1, max_length=256)
     user_id: str | None = Field(default=None, max_length=256)
     project_id: str | None = Field(default=None, max_length=256)
+    idempotency_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
+        description=(
+            "Optional replay key scoped to namespace_id. Reusing the key returns the "
+            "original episode and extract job when the capture payload matches. A "
+            "different payload with the same key is rejected with HTTP 409."
+        ),
+    )
     events: list[CaptureEvent] = Field(min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_idempotency_key(self) -> Self:
+        if self.idempotency_key is not None and len(self.events) != 1:
+            msg = "idempotency_key requires exactly one capture event"
+            raise ValueError(msg)
+        return self
 
 
 class RetrieveRequest(BaseModel):

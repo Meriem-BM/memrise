@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import timedelta
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from memrise.core.enums import JobStatus, JobType
@@ -31,15 +32,42 @@ class PostgresJobQueue:
         dedupe_key: str | None = None,
     ) -> str:
         async with session_scope(self._session_factory) as session:
-            if dedupe_key:
-                existing = (
-                    await session.scalars(select(JobRow).where(JobRow.dedupe_key == dedupe_key))
-                ).first()
-                if existing is not None:
-                    return existing.id
             now = utc_now()
+            job_id = self._ids.new_id("job")
+            if dedupe_key:
+                job_values: dict[str, object] = {
+                    "id": job_id,
+                    "type": job_type.value,
+                    "payload": deepcopy(payload),
+                    "status": JobStatus.PENDING.value,
+                    "attempts": 0,
+                    "max_attempts": 3,
+                    "run_at": now,
+                    "locked_at": None,
+                    "locked_by": None,
+                    "last_error": None,
+                    "dedupe_key": dedupe_key,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                inserted_id = await session.scalar(
+                    insert(JobRow)
+                    .values(job_values)
+                    .on_conflict_do_nothing(index_elements=["dedupe_key"])
+                    .returning(JobRow.id)
+                )
+                if inserted_id is not None:
+                    return inserted_id
+                existing = await session.scalar(
+                    select(JobRow.id).where(JobRow.dedupe_key == dedupe_key)
+                )
+                if existing is None:
+                    msg = f"job dedupe conflict could not be resolved for key {dedupe_key!r}"
+                    raise RuntimeError(msg)
+                return existing
+
             row = JobRow(
-                id=self._ids.new_id("job"),
+                id=job_id,
                 type=job_type.value,
                 payload=deepcopy(payload),
                 status=JobStatus.PENDING.value,
@@ -49,7 +77,7 @@ class PostgresJobQueue:
                 locked_at=None,
                 locked_by=None,
                 last_error=None,
-                dedupe_key=dedupe_key,
+                dedupe_key=None,
                 created_at=now,
                 updated_at=now,
             )
@@ -84,6 +112,10 @@ class PostgresJobQueue:
         async with self._session_factory() as session:
             row = await session.get(JobRow, job_id)
             return job_from_row(row) if row is not None else None
+
+    async def find_job_id_by_dedupe_key(self, dedupe_key: str) -> str | None:
+        async with self._session_factory() as session:
+            return await session.scalar(select(JobRow.id).where(JobRow.dedupe_key == dedupe_key))
 
     async def complete(self, job_id: str) -> None:
         async with session_scope(self._session_factory) as session:

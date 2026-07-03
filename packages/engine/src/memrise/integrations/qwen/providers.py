@@ -14,13 +14,16 @@ from memrise.ports.providers import (
 from memrise.runtime.settings import MemorySettings
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
+MEMORY_EXTRACTION_PROMPT_VERSION = "memory_extraction_v1"
 
 
 class QwenCompletionProvider(CompletionProvider):
     def __init__(self, settings: MemorySettings) -> None:
         self._settings = settings
         self._client = _client_from_settings(settings)
-        self._prompt = (PROMPT_DIR / "memory_extraction_v1.md").read_text(encoding="utf-8")
+        self._prompt = (PROMPT_DIR / f"{MEMORY_EXTRACTION_PROMPT_VERSION}.md").read_text(
+            encoding="utf-8"
+        )
 
     async def extract_memories(self, *, text: str, context: dict[str, object]) -> ExtractionResult:
         client = _require_client(self._client)
@@ -57,7 +60,13 @@ class QwenCompletionProvider(CompletionProvider):
                 parsed = ExtractionResult.model_validate_json(content)
             except ValidationError:
                 continue
-            return parsed
+            return parsed.model_copy(
+                update={
+                    "schema_version": MEMORY_EXTRACTION_PROMPT_VERSION,
+                    "model_name": self._settings.qwen_memory_model,
+                    "prompt_version": MEMORY_EXTRACTION_PROMPT_VERSION,
+                }
+            )
         msg = "Qwen extraction returned malformed JSON after bounded retries"
         raise ValueError(msg)
 

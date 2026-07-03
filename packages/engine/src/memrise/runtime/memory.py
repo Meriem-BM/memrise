@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from memrise.consolidation.graph_projection import GraphProjectionService
-from memrise.core.enums import EpisodeKind, JobStatus, JobType
+from memrise.core.enums import (
+    Criticality,
+    EpisodeKind,
+    FeedbackOutcome,
+    FeedbackSource,
+    JobStatus,
+    JobType,
+    MemoryType,
+)
 from memrise.core.graph import clamp_graph_depth
 from memrise.core.models import BackgroundJob, Episode, Feedback
 from memrise.core.time import utc_now
@@ -30,6 +39,7 @@ from memrise.runtime.scope import scope_from_namespace_agent
 from memrise.runtime.settings import MemorySettings
 from memrise.schemas.mappers import memory_to_summary
 from memrise.schemas.requests import (
+    CaptureEvent,
     CaptureRequest,
     ConsolidateRequest,
     FeedbackRequest,
@@ -82,6 +92,7 @@ class Memrise:
             completion_provider=completion_provider,
             embedding_provider=embedding_provider,
             importance_gate=ImportanceGate(),
+            id_generator=self._ids,
         )
         self._retrieval = RetrievalService(
             store=store,
@@ -110,8 +121,28 @@ class Memrise:
     def jobs(self) -> JobQueue:
         return self._jobs
 
-    async def capture(self, **kwargs: object) -> CaptureResponse:
-        request = CaptureRequest.model_validate(kwargs)
+    async def capture(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        session_id: str,
+        events: list[CaptureEvent | dict[str, Any]],
+        user_id: str | None = None,
+        project_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> CaptureResponse:
+        request = CaptureRequest.model_validate(
+            {
+                "namespace_id": namespace_id,
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "events": events,
+                "user_id": user_id,
+                "project_id": project_id,
+                "idempotency_key": idempotency_key,
+            }
+        )
         episode_ids: list[str] = []
         job_ids: list[str] = []
         for event in request.events:
@@ -126,15 +157,56 @@ class Memrise:
                 content=event.content,
                 metadata=event.metadata,
                 created_at=self._clock.now(),
+                idempotency_key=request.idempotency_key,
             )
-            job_id = await self._write.capture_episode(episode)
-            episode_ids.append(episode.id)
+            saved_episode, job_id = await self._write.capture_episode(episode)
+            episode_ids.append(saved_episode.id)
             if job_id:
                 job_ids.append(job_id)
         return CaptureResponse(episode_ids=episode_ids, job_ids=job_ids)
 
-    async def remember(self, **kwargs: object) -> RememberResponse:
-        request = RememberRequest.model_validate(kwargs)
+    async def remember(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        subject: str,
+        key: str,
+        content: str,
+        type: MemoryType,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        structured_value: dict[str, Any] | None = None,
+        confidence: float = 0.9,
+        importance: float = 0.7,
+        criticality: Criticality = Criticality.NORMAL,
+        applicability: dict[str, Any] | None = None,
+        source_episode_content: str | None = None,
+        source_episode_metadata: dict[str, Any] | None = None,
+        graph_relations: list[tuple[str, str, str]] | None = None,
+        valid_until: str | None = None,
+    ) -> RememberResponse:
+        request = RememberRequest.model_validate(
+            {
+                "namespace_id": namespace_id,
+                "agent_id": agent_id,
+                "subject": subject,
+                "key": key,
+                "content": content,
+                "type": type,
+                "user_id": user_id,
+                "project_id": project_id,
+                "structured_value": structured_value or {},
+                "confidence": confidence,
+                "importance": importance,
+                "criticality": criticality,
+                "applicability": applicability or {},
+                "source_episode_content": source_episode_content,
+                "source_episode_metadata": source_episode_metadata or {},
+                "graph_relations": graph_relations or [],
+                "valid_until": valid_until,
+            }
+        )
         scope = scope_from_namespace_agent(
             namespace_id=request.namespace_id,
             agent_id=request.agent_id,
@@ -170,18 +242,20 @@ class Memrise:
             criticality=request.criticality,
             operation_hint=None,
             valid_until=request.valid_until,
+            evidence_quote=request.source_episode_content or request.content,
             graph_relations=[
                 ExtractedGraphRelation(source=source, relation=relation, target=target)
                 for source, relation, target in request.graph_relations
             ],
         )
         embedding = await self._embedding_provider.embed(request.content)
-        memory = await self._store.apply_candidate(
+        apply_outcome = await self._store.apply_candidate(
             scope=scope,
             candidate=candidate,
             source_episode_ids=source_episode_ids,
             embedding=embedding,
         )
+        memory = apply_outcome.memory
         if memory is None:
             existing = await self._store.find_current_memory(
                 scope=scope,
@@ -199,8 +273,32 @@ class Memrise:
             memory=memory_to_summary(memory), source_episode_id=source_episode_id
         )
 
-    async def retrieve(self, **kwargs: object) -> RetrieveResponse:
-        request = RetrieveRequest.model_validate(kwargs)
+    async def retrieve(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        query: str,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        task_type: str | None = None,
+        token_budget: int = 800,
+        limit: int = 10,
+        graph_hops: int = 1,
+    ) -> RetrieveResponse:
+        request = RetrieveRequest.model_validate(
+            {
+                "namespace_id": namespace_id,
+                "agent_id": agent_id,
+                "query": query,
+                "user_id": user_id,
+                "project_id": project_id,
+                "task_type": task_type,
+                "token_budget": token_budget,
+                "limit": limit,
+                "graph_hops": graph_hops,
+            }
+        )
         scope = scope_from_namespace_agent(
             namespace_id=request.namespace_id,
             agent_id=request.agent_id,
@@ -241,8 +339,27 @@ class Memrise:
             context=context,
         )
 
-    async def feedback(self, retrieval_id: str, **kwargs: object) -> FeedbackResponse:
-        request = FeedbackRequest.model_validate(kwargs)
+    async def feedback(
+        self,
+        retrieval_id: str,
+        *,
+        outcome: FeedbackOutcome,
+        source: FeedbackSource,
+        memory_version_id: str | None = None,
+        graph_edge_id: str | None = None,
+        confidence: float | None = None,
+        task_type: str | None = None,
+    ) -> FeedbackResponse:
+        request = FeedbackRequest.model_validate(
+            {
+                "outcome": outcome,
+                "source": source,
+                "memory_version_id": memory_version_id,
+                "graph_edge_id": graph_edge_id,
+                "confidence": confidence,
+                "task_type": task_type,
+            }
+        )
         confidence = self._feedback_policy.confidence_for(request.source, request.confidence)
         feedback = Feedback(
             id=self._ids.new_id("feedback"),
@@ -268,8 +385,24 @@ class Memrise:
             usefulness_score=score,
         )
 
-    async def consolidate(self, **kwargs: object) -> ConsolidateResponse:
-        request = ConsolidateRequest.model_validate(kwargs)
+    async def consolidate(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        session_id: str,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> ConsolidateResponse:
+        request = ConsolidateRequest.model_validate(
+            {
+                "namespace_id": namespace_id,
+                "agent_id": agent_id,
+                "session_id": session_id,
+                "user_id": user_id,
+                "project_id": project_id,
+            }
+        )
         job_id = await self._jobs.enqueue(
             job_type=JobType.CONSOLIDATE_SESSION,
             payload=request.model_dump(exclude_none=True),

@@ -16,3 +16,8 @@ class NotFoundError(ApiError):
 class DependencyUnavailableError(ApiError):
     def __init__(self, message: str) -> None:
         super().__init__(code="dependency_unavailable", message=message, status_code=503)
+
+
+class ConflictError(ApiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(code="conflict", message=message, status_code=409)

@@ -1,4 +1,5 @@
 from memrise.core.enums import (
+    CandidateStageStatus,
     Criticality,
     EpisodeKind,
     JobStatus,
@@ -11,6 +12,7 @@ from memrise.core.models import (
     BackgroundJob,
     CanonicalMemory,
     Episode,
+    MemoryCandidateStage,
     MemoryIdentity,
     MemoryVersion,
     RetrievalItem,
@@ -19,6 +21,7 @@ from memrise.core.models import (
 from memrise.integrations.postgres.models import (
     EpisodeRow,
     JobRow,
+    MemoryCandidateRow,
     MemoryRow,
     MemoryVersionRow,
     RetrievalItemRow,
@@ -38,6 +41,7 @@ def episode_from_row(row: EpisodeRow) -> Episode:
         content=row.content,
         metadata=dict(row.metadata_),
         created_at=row.created_at,
+        idempotency_key=row.idempotency_key,
     )
 
 
@@ -116,6 +120,33 @@ def job_from_row(row: JobRow) -> BackgroundJob:
         locked_at=row.locked_at,
         locked_by=row.locked_by,
         last_error=row.last_error,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def candidate_stage_from_row(row: MemoryCandidateRow) -> MemoryCandidateStage:
+    return MemoryCandidateStage(
+        id=row.id,
+        episode_id=row.episode_id,
+        namespace_id=row.namespace_id,
+        agent_id=row.agent_id,
+        user_id=row.user_id,
+        project_id=row.project_id,
+        candidate_index=row.candidate_index,
+        schema_version=row.schema_version,
+        model_name=row.model_name,
+        prompt_version=row.prompt_version,
+        classification=dict(row.classification),
+        candidate=dict(row.candidate),
+        memory_type=row.memory_type,
+        subject=row.subject,
+        key=row.key,
+        evidence_quote=row.evidence_quote,
+        status=CandidateStageStatus(row.status),
+        promotion_score=row.promotion_score,
+        rejection_reason=row.rejection_reason,
+        memory_version_id=row.memory_version_id,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

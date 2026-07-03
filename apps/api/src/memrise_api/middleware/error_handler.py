@@ -4,8 +4,9 @@ from fastapi.exceptions import RequestValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from memrise.core.errors import IdempotencyConflictError
 from memrise.integrations.qwen.errors import QwenProviderError
-from memrise_api.errors import ApiError, DependencyUnavailableError
+from memrise_api.errors import ApiError, ConflictError, DependencyUnavailableError
 
 
 async def error_handler_middleware(
@@ -16,6 +17,14 @@ async def error_handler_middleware(
         return await call_next(request)
     except ApiError as exc:
         return _error_response(request, exc.status_code, exc.code, exc.message)
+    except IdempotencyConflictError as exc:
+        conflict = ConflictError(str(exc))
+        return _error_response(
+            request,
+            conflict.status_code,
+            conflict.code,
+            conflict.message,
+        )
     except QwenProviderError as exc:
         unavailable = DependencyUnavailableError(str(exc))
         return _error_response(
