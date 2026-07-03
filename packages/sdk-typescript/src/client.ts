@@ -55,7 +55,6 @@ export type {
   HealthLiveResponse,
   HealthReadyResponse,
   MemriseClientOptions,
-  MemoryClientOptions,
   GraphRelationInput,
   RememberInput,
   RetrievalTraceSummary,
@@ -64,7 +63,7 @@ export type {
 
 export class MemriseClient {
   readonly #baseUrl: string;
-  readonly #apiKey: string;
+  readonly #apiKey: string | undefined;
   readonly #timeoutMs: number;
   readonly #fetch: typeof fetch;
 
@@ -260,7 +259,7 @@ export class MemriseClient {
         signal: controller.signal,
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${this.#apiKey}`,
+          ...(this.#apiKey !== undefined ? { authorization: `Bearer ${this.#apiKey}` } : {}),
         },
       };
       if (body !== undefined) {
@@ -284,5 +283,3 @@ export class MemriseClient {
     }
   }
 }
-
-export { MemriseClient as MemoryClient };

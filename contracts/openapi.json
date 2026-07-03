@@ -19,7 +19,10 @@
             "type": "object"
           }
         },
-        "required": ["kind", "content"],
+        "required": [
+          "kind",
+          "content"
+        ],
         "title": "CaptureEvent",
         "type": "object"
       },
@@ -92,7 +95,12 @@
             "title": "User Id"
           }
         },
-        "required": ["namespace_id", "agent_id", "session_id", "events"],
+        "required": [
+          "namespace_id",
+          "agent_id",
+          "session_id",
+          "events"
+        ],
         "title": "CaptureRequest",
         "type": "object"
       },
@@ -114,7 +122,10 @@
             "type": "array"
           }
         },
-        "required": ["episode_ids", "job_ids"],
+        "required": [
+          "episode_ids",
+          "job_ids"
+        ],
         "title": "CaptureResponse",
         "type": "object"
       },
@@ -164,7 +175,11 @@
             "title": "User Id"
           }
         },
-        "required": ["namespace_id", "agent_id", "session_id"],
+        "required": [
+          "namespace_id",
+          "agent_id",
+          "session_id"
+        ],
         "title": "ConsolidateRequest",
         "type": "object"
       },
@@ -180,12 +195,19 @@
             "type": "string"
           }
         },
-        "required": ["job_id", "accepted"],
+        "required": [
+          "job_id",
+          "accepted"
+        ],
         "title": "ConsolidateResponse",
         "type": "object"
       },
       "Criticality": {
-        "enum": ["normal", "high_priority", "must_include"],
+        "enum": [
+          "normal",
+          "high_priority",
+          "must_include"
+        ],
         "title": "Criticality",
         "type": "string"
       },
@@ -203,7 +225,11 @@
         "type": "string"
       },
       "FeedbackOutcome": {
-        "enum": ["helpful", "unused", "harmful"],
+        "enum": [
+          "helpful",
+          "unused",
+          "harmful"
+        ],
         "title": "FeedbackOutcome",
         "type": "string"
       },
@@ -263,7 +289,10 @@
             "title": "Task Type"
           }
         },
-        "required": ["outcome", "source"],
+        "required": [
+          "outcome",
+          "source"
+        ],
         "title": "FeedbackRequest",
         "type": "object"
       },
@@ -318,12 +347,24 @@
         "type": "object"
       },
       "FeedbackSource": {
-        "enum": ["user", "developer", "tool", "evaluator", "agent"],
+        "enum": [
+          "user",
+          "developer",
+          "tool",
+          "evaluator",
+          "agent"
+        ],
         "title": "FeedbackSource",
         "type": "string"
       },
       "GraphEdgeStatus": {
-        "enum": ["active", "superseded", "expired", "contested", "deleted"],
+        "enum": [
+          "active",
+          "superseded",
+          "expired",
+          "contested",
+          "deleted"
+        ],
         "title": "GraphEdgeStatus",
         "type": "string"
       },
@@ -412,7 +453,10 @@
             "type": "array"
           }
         },
-        "required": ["nodes", "edges"],
+        "required": [
+          "nodes",
+          "edges"
+        ],
         "title": "GraphNeighborhoodResponse",
         "type": "object"
       },
@@ -522,7 +566,11 @@
             "title": "Target Type"
           }
         },
-        "required": ["source", "relation", "target"],
+        "required": [
+          "source",
+          "relation",
+          "target"
+        ],
         "title": "GraphRelationInput",
         "type": "object"
       },
@@ -540,7 +588,13 @@
         "type": "object"
       },
       "JobStatus": {
-        "enum": ["pending", "running", "completed", "failed", "retryable"],
+        "enum": [
+          "pending",
+          "running",
+          "completed",
+          "failed",
+          "retryable"
+        ],
         "title": "JobStatus",
         "type": "string"
       },
@@ -637,7 +691,8 @@
           "consolidate_session",
           "expire_memories",
           "process_feedback",
-          "project_graph"
+          "project_graph",
+          "rebuild_graph"
         ],
         "title": "JobType",
         "type": "string"
@@ -702,7 +757,14 @@
         "type": "object"
       },
       "MemoryStatus": {
-        "enum": ["candidate", "active", "superseded", "expired", "contested", "deleted"],
+        "enum": [
+          "candidate",
+          "active",
+          "superseded",
+          "expired",
+          "contested",
+          "deleted"
+        ],
         "title": "MemoryStatus",
         "type": "string"
       },
@@ -777,7 +839,14 @@
         "type": "object"
       },
       "MemoryType": {
-        "enum": ["preference", "fact", "decision", "constraint", "goal", "lesson"],
+        "enum": [
+          "preference",
+          "fact",
+          "decision",
+          "constraint",
+          "goal",
+          "lesson"
+        ],
         "title": "MemoryType",
         "type": "string"
       },
@@ -907,7 +976,14 @@
             "title": "Valid Until"
           }
         },
-        "required": ["namespace_id", "agent_id", "subject", "key", "content", "type"],
+        "required": [
+          "namespace_id",
+          "agent_id",
+          "subject",
+          "key",
+          "content",
+          "type"
+        ],
         "title": "RememberRequest",
         "type": "object"
       },
@@ -929,7 +1005,9 @@
             "title": "Source Episode Id"
           }
         },
-        "required": ["memory"],
+        "required": [
+          "memory"
+        ],
         "title": "RememberResponse",
         "type": "object"
       },
@@ -948,7 +1026,10 @@
             "type": "string"
           }
         },
-        "required": ["retrieval_id", "items"],
+        "required": [
+          "retrieval_id",
+          "items"
+        ],
         "title": "RetrievalDetail",
         "type": "object"
       },
@@ -1056,7 +1137,13 @@
         "type": "object"
       },
       "RetrievalSourceType": {
-        "enum": ["critical", "structured", "lexical", "semantic", "graph"],
+        "enum": [
+          "critical",
+          "structured",
+          "lexical",
+          "semantic",
+          "graph"
+        ],
         "title": "RetrievalSourceType",
         "type": "string"
       },
@@ -1203,7 +1290,11 @@
             "title": "User Id"
           }
         },
-        "required": ["namespace_id", "agent_id", "query"],
+        "required": [
+          "namespace_id",
+          "agent_id",
+          "query"
+        ],
         "title": "RetrieveRequest",
         "type": "object"
       },
@@ -1382,7 +1473,11 @@
             "type": "string"
           }
         },
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError",
         "type": "object"
       }
@@ -1414,7 +1509,9 @@
           }
         },
         "summary": "Live",
-        "tags": ["health"]
+        "tags": [
+          "health"
+        ]
       }
     },
     "/health/ready": {
@@ -1437,7 +1534,9 @@
           }
         },
         "summary": "Ready",
-        "tags": ["health"]
+        "tags": [
+          "health"
+        ]
       }
     },
     "/v1/episodes": {
@@ -1476,7 +1575,9 @@
           }
         },
         "summary": "Capture Episode",
-        "tags": ["episodes"]
+        "tags": [
+          "episodes"
+        ]
       }
     },
     "/v1/graph/neighborhood": {
@@ -1585,7 +1686,9 @@
           }
         },
         "summary": "Neighborhood",
-        "tags": ["graph"]
+        "tags": [
+          "graph"
+        ]
       }
     },
     "/v1/jobs/{job_id}": {
@@ -1625,7 +1728,9 @@
           }
         },
         "summary": "Get Job",
-        "tags": ["jobs"]
+        "tags": [
+          "jobs"
+        ]
       }
     },
     "/v1/memories": {
@@ -1710,7 +1815,9 @@
           }
         },
         "summary": "List Memories",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       },
       "post": {
         "operationId": "remember_v1_memories_post",
@@ -1747,7 +1854,9 @@
           }
         },
         "summary": "Remember",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       }
     },
     "/v1/memories/retrieve": {
@@ -1786,7 +1895,9 @@
           }
         },
         "summary": "Retrieve",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       }
     },
     "/v1/memories/{memory_id}": {
@@ -1826,7 +1937,9 @@
           }
         },
         "summary": "Get Memory",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       }
     },
     "/v1/memories/{memory_id}/explanation": {
@@ -1866,7 +1979,9 @@
           }
         },
         "summary": "Explain Memory",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       }
     },
     "/v1/memories/{memory_id}/versions": {
@@ -1910,7 +2025,9 @@
           }
         },
         "summary": "Memory Versions",
-        "tags": ["memories"]
+        "tags": [
+          "memories"
+        ]
       }
     },
     "/v1/retrievals": {
@@ -1966,7 +2083,9 @@
           }
         },
         "summary": "List Retrievals",
-        "tags": ["retrievals"]
+        "tags": [
+          "retrievals"
+        ]
       }
     },
     "/v1/retrievals/{retrieval_id}": {
@@ -2006,7 +2125,9 @@
           }
         },
         "summary": "Get Retrieval",
-        "tags": ["retrievals"]
+        "tags": [
+          "retrievals"
+        ]
       }
     },
     "/v1/retrievals/{retrieval_id}/feedback": {
@@ -2056,7 +2177,9 @@
           }
         },
         "summary": "Feedback",
-        "tags": ["retrievals"]
+        "tags": [
+          "retrievals"
+        ]
       }
     },
     "/v1/sessions/{session_id}/consolidate": {
@@ -2106,7 +2229,9 @@
           }
         },
         "summary": "Consolidate",
-        "tags": ["sessions"]
+        "tags": [
+          "sessions"
+        ]
       }
     }
   }

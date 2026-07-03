@@ -9,8 +9,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command:
-      "NEXT_PUBLIC_MEMRISE_API_URL=http://127.0.0.1:8000 NEXT_PUBLIC_MEMRISE_API_KEY=local-dev-key pnpm dev",
+    command: "MEMRISE_API_URL=http://127.0.0.1:8000 MEMRISE_API_KEY=local-dev-key pnpm dev",
     url: "http://localhost:3000",
     reuseExistingServer: true,
     timeout: 60_000,

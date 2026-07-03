@@ -1,4 +1,4 @@
-export { MemriseClient, MemoryClient } from "./client.js";
+export { MemriseClient } from "./client.js";
 export type {
   CaptureEventInput,
   CaptureInput,
@@ -7,7 +7,6 @@ export type {
   HealthLiveResponse,
   HealthReadyResponse,
   MemriseClientOptions,
-  MemoryClientOptions,
   GraphRelationInput,
   RememberInput,
   RetrievalTraceSummary,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { MemriseClient, MemoryClient } from "../src/client.js";
+import { MemriseClient } from "../src/client.js";
 import { MemoryClientError } from "../src/errors.js";
 
 describe("MemoryClientError", () => {
@@ -17,10 +17,6 @@ describe("MemoryClientError", () => {
 });
 
 describe("MemriseClient", () => {
-  it("exports the new client name and compatibility alias", () => {
-    expect(MemriseClient).toBe(MemoryClient);
-  });
-
   it("maps ergonomic capture input to the OpenAPI transport body", async () => {
     let body: unknown;
     const client = new MemriseClient({

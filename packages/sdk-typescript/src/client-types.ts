@@ -79,12 +79,11 @@ export interface ConsolidateInput {
 
 export interface MemriseClientOptions {
   baseUrl: string;
-  apiKey: string;
+  /** Omit when requests are authenticated upstream (e.g. a server-side proxy). */
+  apiKey?: string;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
 }
-
-export type MemoryClientOptions = MemriseClientOptions;
 
 export type HealthLiveResponse =
   paths["/health/live"]["get"]["responses"]["200"]["content"]["application/json"];
