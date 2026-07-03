@@ -519,26 +519,10 @@ class MemoryStoreStub:
                 ),
             )
         if plan.reinforce is not None and existing is not None:
-            updated = make_memory(
-                memory_id=existing.identity.id,
-                version_id=existing.version.id,
-                namespace_id=existing.identity.namespace_id,
-                agent_id=existing.identity.agent_id,
-                user_id=existing.identity.user_id,
-                project_id=existing.identity.project_id,
-                subject=existing.identity.subject,
-                key=existing.identity.key,
-                content=existing.version.content,
+            updated = _with_version(
+                existing,
                 confidence=plan.reinforce.confidence,
-                importance=existing.version.importance,
                 usefulness_score=plan.reinforce.usefulness_score,
-                criticality=existing.version.criticality,
-                status=existing.version.status,
-                version_number=existing.version.version_number,
-                structured_value=existing.version.structured_value,
-                valid_until=existing.version.valid_until,
-                supersedes_version_id=existing.version.supersedes_version_id,
-                superseded_by_version_id=existing.version.superseded_by_version_id,
             )
             self.memories = [
                 updated if memory.version.id == existing.version.id else memory
@@ -566,6 +550,7 @@ class MemoryStoreStub:
             project_id=scope.project_id,
             subject=new_version.candidate.subject,
             key=new_version.candidate.key,
+            type=new_version.candidate.type,
             content=new_version.candidate.content,
             confidence=new_version.candidate.confidence,
             importance=new_version.candidate.importance,
@@ -574,8 +559,11 @@ class MemoryStoreStub:
             status=new_version.new_version_status,
             version_number=new_version.version_number,
             structured_value=dict(new_version.candidate.structured_value),
+            applicability=dict(new_version.candidate.applicability),
             valid_until=new_version.valid_until,
             supersedes_version_id=new_version.supersedes_version_id,
+            embedding=list(new_version.embedding.values),
+            embedding_model=new_version.embedding.model,
         )
         if new_version.supersede_existing_version_id is not None:
             superseded_at = (
@@ -584,25 +572,10 @@ class MemoryStoreStub:
                 else None
             )
             self.memories = [
-                make_memory(
-                    memory_id=item.identity.id,
-                    version_id=item.version.id,
-                    namespace_id=item.identity.namespace_id,
-                    agent_id=item.identity.agent_id,
-                    user_id=item.identity.user_id,
-                    project_id=item.identity.project_id,
-                    subject=item.identity.subject,
-                    key=item.identity.key,
-                    content=item.version.content,
-                    confidence=item.version.confidence,
-                    importance=item.version.importance,
-                    usefulness_score=item.version.usefulness_score,
-                    criticality=item.version.criticality,
+                _with_version(
+                    item,
                     status=new_version.supersede_existing_status or item.version.status,
-                    version_number=item.version.version_number,
-                    structured_value=item.version.structured_value,
                     valid_until=superseded_at or item.version.valid_until,
-                    supersedes_version_id=item.version.supersedes_version_id,
                     superseded_by_version_id=version_id,
                 )
                 if item.version.id == new_version.supersede_existing_version_id
@@ -747,23 +720,7 @@ class MemoryStoreStub:
             )
             return updated_score
         self.memories = [
-            make_memory(
-                memory_id=item.identity.id,
-                version_id=item.version.id,
-                namespace_id=item.identity.namespace_id,
-                agent_id=item.identity.agent_id,
-                user_id=item.identity.user_id,
-                project_id=item.identity.project_id,
-                subject=item.identity.subject,
-                key=item.identity.key,
-                content=item.version.content,
-                confidence=item.version.confidence,
-                importance=item.version.importance,
-                usefulness_score=updated_score,
-                criticality=item.version.criticality,
-                status=item.version.status,
-                version_number=item.version.version_number,
-            )
+            _with_version(item, usefulness_score=updated_score)
             if item.version.id == memory.version.id
             else item
             for item in self.memories

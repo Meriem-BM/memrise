@@ -198,6 +198,13 @@ async def persist_graph_claims(
             project_id=memory.identity.project_id,
         )
         if resolution.status == "ambiguous":
+            await store.record_ambiguous_mention(
+                namespace_id=projection.namespace_id,
+                name=candidate.name,
+                core_type=candidate.node_type,
+                memory_version_id=projection.memory_version_id,
+                candidate_entity_ids=resolution.candidates,
+            )
             continue
         if resolution.status == "rejected" or resolution.entity_id is None:
             continue

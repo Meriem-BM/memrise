@@ -25,7 +25,7 @@ jobs:
       - run: uv run ruff check .
       - run: pnpm exec prettier --check . --ignore-unknown
       - run: uv run pyright
-      - run: uv run pytest tests/unit tests/api tests/contract
+      - run: uv run pytest tests/unit tests/api tests/contract tests/eval
       - run: pnpm --recursive lint
       - run: pnpm --filter memrise-memory-sdk build
       - run: pnpm --recursive typecheck

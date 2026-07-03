@@ -3,12 +3,13 @@ from pathlib import Path
 
 from openai import AsyncOpenAI, AuthenticationError
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from memrise.graph.schema import GraphSchemaPack
 from memrise.integrations.qwen.errors import QwenProviderError
 from memrise.ports.providers import (
     CompletionProvider,
+    ConsolidationResult,
     EmbeddingProvider,
     EmbeddingVector,
     ExtractionResult,
@@ -17,6 +18,7 @@ from memrise.runtime.settings import MemorySettings
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
 MEMORY_EXTRACTION_PROMPT_VERSION = "memory_extraction_v1"
+CONSOLIDATION_PROMPT_VERSION = "consolidation_v1"
 
 
 class QwenCompletionProvider(CompletionProvider):
@@ -24,6 +26,9 @@ class QwenCompletionProvider(CompletionProvider):
         self._settings = settings
         self._client = _client_from_settings(settings)
         self._prompt = (PROMPT_DIR / f"{MEMORY_EXTRACTION_PROMPT_VERSION}.md").read_text(
+            encoding="utf-8"
+        )
+        self._consolidation_prompt = (PROMPT_DIR / f"{CONSOLIDATION_PROMPT_VERSION}.md").read_text(
             encoding="utf-8"
         )
 
@@ -41,19 +46,67 @@ class QwenCompletionProvider(CompletionProvider):
         text: str,
         context: dict[str, object],
     ) -> ExtractionResult:
+        parsed = await self._complete_validated_json(
+            client,
+            system_prompt=self._prompt,
+            user_payload={"text": text, "context": context},
+            model_cls=ExtractionResult,
+            task_label="extraction",
+        )
+        return parsed.model_copy(
+            update={
+                "schema_version": MEMORY_EXTRACTION_PROMPT_VERSION,
+                "model_name": self._settings.qwen_memory_model,
+                "prompt_version": MEMORY_EXTRACTION_PROMPT_VERSION,
+            }
+        )
+
+    async def consolidate_memories(
+        self,
+        *,
+        episodes: list[dict[str, object]],
+        existing_memories: list[dict[str, object]],
+        context: dict[str, object],
+    ) -> ConsolidationResult:
+        client = _require_client(self._client)
+        try:
+            parsed = await self._complete_validated_json(
+                client,
+                system_prompt=self._consolidation_prompt,
+                user_payload={
+                    "episodes": episodes,
+                    "existing_memories": existing_memories,
+                    "context": context,
+                },
+                model_cls=ConsolidationResult,
+                task_label="consolidation",
+            )
+        except AuthenticationError as exc:
+            msg = "Qwen consolidation authentication failed; verify ALIBABA_CLOUD_API_KEY"
+            raise QwenProviderError(msg) from exc
+        return parsed.model_copy(
+            update={
+                "schema_version": CONSOLIDATION_PROMPT_VERSION,
+                "model_name": self._settings.qwen_memory_model,
+                "prompt_version": CONSOLIDATION_PROMPT_VERSION,
+            }
+        )
+
+    async def _complete_validated_json[ModelT: BaseModel](
+        self,
+        client: AsyncOpenAI,
+        *,
+        system_prompt: str,
+        user_payload: dict[str, object],
+        model_cls: type[ModelT],
+        task_label: str,
+    ) -> ModelT:
+        """Call the model and validate JSON, feeding validation errors back on retry."""
         messages: list[ChatCompletionMessageParam] = [
-            {
-                "role": "system",
-                "content": self._prompt,
-            },
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {"text": text, "context": context},
-                    ensure_ascii=False,
-                ),
-            },
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ]
+        last_error: ValidationError | None = None
         for _ in range(self._settings.qwen_max_retries + 1):
             completion = await client.chat.completions.create(
                 model=self._settings.qwen_memory_model,
@@ -62,18 +115,23 @@ class QwenCompletionProvider(CompletionProvider):
             )
             content = completion.choices[0].message.content or "{}"
             try:
-                parsed = ExtractionResult.model_validate_json(content)
-            except ValidationError:
-                continue
-            return parsed.model_copy(
-                update={
-                    "schema_version": MEMORY_EXTRACTION_PROMPT_VERSION,
-                    "model_name": self._settings.qwen_memory_model,
-                    "prompt_version": MEMORY_EXTRACTION_PROMPT_VERSION,
-                }
-            )
-        msg = "Qwen extraction returned malformed JSON after bounded retries"
-        raise ValueError(msg)
+                return model_cls.model_validate_json(content)
+            except ValidationError as exc:
+                last_error = exc
+                messages = [
+                    *messages,
+                    {"role": "assistant", "content": content},
+                    {
+                        "role": "user",
+                        "content": (
+                            "Your previous output failed schema validation. "
+                            f"Errors: {exc.errors(include_url=False)!r}. "
+                            "Return corrected JSON only, matching the schema exactly."
+                        ),
+                    },
+                ]
+        msg = f"Qwen {task_label} returned malformed JSON after bounded retries"
+        raise ValueError(msg) from last_error
 
 
 class QwenEmbeddingProvider(EmbeddingProvider):

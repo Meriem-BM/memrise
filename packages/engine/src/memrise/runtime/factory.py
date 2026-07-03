@@ -65,7 +65,12 @@ def build_runtime_services(
         write=write,
         graph_projection=graph_projection,
         graph_rebuild=graph_rebuild,
-        session_consolidation=SessionConsolidationService(store=store, write=write),
+        session_consolidation=SessionConsolidationService(
+            store=store,
+            write=write,
+            completion_provider=completion_provider,
+            embedding_provider=embedding_provider,
+        ),
         lifecycle=LifecycleService(
             store=store,
             claim_store=graph_claim_store,

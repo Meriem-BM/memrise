@@ -1,0 +1,178 @@
+[
+  {
+    "name": "preference_capture",
+    "episodes": [
+      {
+        "content": "I always prefer pnpm for Atlas dependency installs.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "preference",
+              "subject": "Atlas",
+              "key": "package_manager",
+              "content": "Atlas uses pnpm for dependency installs.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "evidence_quote": "I always prefer pnpm for Atlas dependency installs."
+            }
+          ]
+        }
+      }
+    ],
+    "expected_active_memories": 1,
+    "queries": [
+      {
+        "query": "package manager for Atlas installs",
+        "expect_top_contains": "pnpm"
+      }
+    ]
+  },
+  {
+    "name": "correction_supersedes",
+    "episodes": [
+      {
+        "content": "Atlas uses npm as the package manager.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "decision",
+              "subject": "Atlas",
+              "key": "package_manager",
+              "content": "Atlas uses npm as the package manager.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "evidence_quote": "Atlas uses npm as the package manager."
+            }
+          ]
+        }
+      },
+      {
+        "content": "Correction: Atlas now uses pnpm instead of npm.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "decision",
+              "subject": "Atlas",
+              "key": "package_manager",
+              "content": "Atlas uses pnpm as the package manager.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "operation_hint": "SUPERSEDE",
+              "evidence_quote": "Atlas now uses pnpm instead of npm."
+            }
+          ]
+        }
+      }
+    ],
+    "expected_active_memories": 1,
+    "queries": [
+      {
+        "query": "which package manager does Atlas use",
+        "expect_top_contains": "pnpm"
+      }
+    ]
+  },
+  {
+    "name": "paraphrase_reinforces_across_keys",
+    "episodes": [
+      {
+        "content": "Atlas deploys must run on Fridays only.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "constraint",
+              "subject": "Atlas",
+              "key": "deploy_day",
+              "content": "Atlas deploys run on Fridays only.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "evidence_quote": "Atlas deploys must run on Fridays only."
+            }
+          ]
+        }
+      },
+      {
+        "content": "Remember that Friday is the only deploy day for Atlas.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "constraint",
+              "subject": "Atlas",
+              "key": "deployment_schedule",
+              "content": "Friday is the only deploy day for Atlas.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "evidence_quote": "Friday is the only deploy day for Atlas."
+            }
+          ]
+        }
+      }
+    ],
+    "expected_active_memories": 1,
+    "queries": [
+      {
+        "query": "when can Atlas deploy",
+        "expect_top_contains": "Friday"
+      }
+    ]
+  },
+  {
+    "name": "secret_is_rejected",
+    "episodes": [
+      {
+        "content": "The Atlas admin api_key = sk-abcdef1234567890abcdef, never share it.",
+        "extraction": {
+          "classification": {
+            "should_extract": false,
+            "durability": "none",
+            "sensitivity": "secret"
+          },
+          "candidates": []
+        }
+      }
+    ],
+    "expected_active_memories": 0,
+    "queries": []
+  },
+  {
+    "name": "task_scoped_memory",
+    "episodes": [
+      {
+        "content": "During deploys, Atlas always requires the cache to be cleared first.",
+        "extraction": {
+          "candidates": [
+            {
+              "type": "constraint",
+              "subject": "AtlasDeploy",
+              "key": "cache_rule",
+              "content": "Atlas deploys require clearing the cache first.",
+              "confidence": 0.9,
+              "importance": 0.8,
+              "criticality": "normal",
+              "applicability": { "task_type": "deploy" },
+              "evidence_quote": "Atlas always requires the cache to be cleared first."
+            }
+          ]
+        }
+      }
+    ],
+    "expected_active_memories": 1,
+    "queries": [
+      {
+        "query": "Atlas cache rules",
+        "task_type": "deploy",
+        "expect_top_contains": "cache"
+      },
+      {
+        "query": "Atlas cache rules",
+        "task_type": "code_review",
+        "expect_absent": "cache"
+      }
+    ]
+  }
+]

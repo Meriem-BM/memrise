@@ -409,6 +409,23 @@ class GraphClaimRow(Base):
     extracted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class GraphEntityMentionRow(Base):
+    __tablename__ = "graph_entity_mentions"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    namespace_id: Mapped[str] = mapped_column(String(128), index=True)
+    name: Mapped[str] = mapped_column(String(256))
+    normalized_name: Mapped[str] = mapped_column(String(256), index=True)
+    core_type: Mapped[str] = mapped_column(String(128))
+    memory_version_id: Mapped[str] = mapped_column(
+        ForeignKey("memory_versions.id", ondelete="CASCADE"),
+        index=True,
+    )
+    candidate_entity_ids: Mapped[list[str]] = mapped_column(JSONB, default=list)
+    status: Mapped[str] = mapped_column(String(32), default="ambiguous", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class GraphSchemaPackRow(Base):
     __tablename__ = "graph_schema_packs"
     __table_args__ = (

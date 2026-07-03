@@ -1,6 +1,8 @@
+import hashlib
 from datetime import datetime
 
 from sqlalchemy import exists, func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -8,7 +10,11 @@ from memrise.core.enums import GraphClaimStatus
 from memrise.core.graph import GraphClaim, GraphEntity
 from memrise.core.time import utc_now
 from memrise.graph.types import normalize_entity_name
-from memrise.integrations.postgres.schema.models import GraphClaimRow, GraphEntityRow
+from memrise.integrations.postgres.schema.models import (
+    GraphClaimRow,
+    GraphEntityMentionRow,
+    GraphEntityRow,
+)
 from memrise.integrations.postgres.session import session_scope
 
 
@@ -63,6 +69,71 @@ def merge_aliases(existing: list[str] | None, incoming: tuple[str, ...]) -> list
 class PostgresGraphClaimStore:
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
+
+    async def record_ambiguous_mention(
+        self,
+        *,
+        namespace_id: str,
+        name: str,
+        core_type: str,
+        memory_version_id: str,
+        candidate_entity_ids: tuple[str, ...],
+    ) -> None:
+        digest = hashlib.sha256(
+            f"{namespace_id}:{core_type}:{normalize_entity_name(name)}:{memory_version_id}".encode()
+        ).hexdigest()[:24]
+        async with session_scope(self._session_factory) as session:
+            await session.execute(
+                insert(GraphEntityMentionRow)
+                .values(
+                    id=f"gmen-{digest}",
+                    namespace_id=namespace_id,
+                    name=name.strip(),
+                    normalized_name=normalize_entity_name(name),
+                    core_type=core_type,
+                    memory_version_id=memory_version_id,
+                    candidate_entity_ids=list(candidate_entity_ids),
+                    status="ambiguous",
+                    created_at=utc_now(),
+                )
+                .on_conflict_do_nothing(index_elements=["id"])
+            )
+
+    async def merge_entities(
+        self,
+        *,
+        namespace_id: str,
+        source_entity_id: str,
+        target_entity_id: str,
+    ) -> int:
+        if source_entity_id == target_entity_id:
+            return 0
+        async with session_scope(self._session_factory) as session:
+            source = await session.get(GraphEntityRow, source_entity_id)
+            target = await session.get(GraphEntityRow, target_entity_id)
+            if source is None or target is None:
+                return 0
+            if source.namespace_id != namespace_id or target.namespace_id != namespace_id:
+                return 0
+            moved = 0
+            for column in (GraphClaimRow.subject_entity_id, GraphClaimRow.object_entity_id):
+                result = await session.execute(
+                    sa_update(GraphClaimRow)
+                    .where(
+                        GraphClaimRow.namespace_id == namespace_id,
+                        column == source_entity_id,
+                    )
+                    .values({column.key: target_entity_id})
+                )
+                moved += int(getattr(result, "rowcount", 0) or 0)
+            target.aliases = merge_aliases(
+                target.aliases,
+                (source.canonical_name, *tuple(source.aliases or ())),
+            )
+            if target.stable_source_id is None and source.stable_source_id is not None:
+                target.stable_source_id = source.stable_source_id
+            await session.delete(source)
+            return moved
 
     async def upsert_entity(
         self,

@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 from memrise.ports.providers import (
     CompletionProvider,
+    ConsolidationResult,
     EmbeddingProvider,
     EmbeddingVector,
     EpisodeClassification,
@@ -13,14 +14,40 @@ from memrise.ports.providers import (
 )
 
 
+def empty_consolidation_result() -> ConsolidationResult:
+    return ConsolidationResult(
+        candidates=[],
+        model_name="mock",
+        prompt_version="consolidation_v1",
+    )
+
+
 @dataclass
 class MockCompletionProvider(CompletionProvider):
     result: ExtractionResult
+    consolidation: ConsolidationResult = field(default_factory=empty_consolidation_result)
     captured: list[tuple[str, dict[str, object]]] = field(default_factory=list)
+    consolidation_calls: list[dict[str, object]] = field(default_factory=list)
 
     async def extract_memories(self, *, text: str, context: dict[str, object]) -> ExtractionResult:
         self.captured.append((text, context))
         return self.result
+
+    async def consolidate_memories(
+        self,
+        *,
+        episodes: list[dict[str, object]],
+        existing_memories: list[dict[str, object]],
+        context: dict[str, object],
+    ) -> ConsolidationResult:
+        self.consolidation_calls.append(
+            {
+                "episodes": episodes,
+                "existing_memories": existing_memories,
+                "context": context,
+            }
+        )
+        return self.consolidation
 
 
 MOCK_EMBEDDING_MODEL = "mock-embedding"

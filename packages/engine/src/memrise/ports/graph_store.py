@@ -90,6 +90,26 @@ class GraphClaimStore(Protocol):
 
     async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None: ...
 
+    async def record_ambiguous_mention(
+        self,
+        *,
+        namespace_id: str,
+        name: str,
+        core_type: str,
+        memory_version_id: str,
+        candidate_entity_ids: tuple[str, ...],
+    ) -> None: ...
+
+    async def merge_entities(
+        self,
+        *,
+        namespace_id: str,
+        source_entity_id: str,
+        target_entity_id: str,
+    ) -> int:
+        """Re-point claims onto target, union aliases, drop source; returns moved claims."""
+        ...
+
     async def expire_due_claims(self, *, now: datetime) -> int: ...
 
     async def list_conflicting_active_claims(

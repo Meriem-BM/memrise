@@ -51,7 +51,12 @@ def _processor(store: MemoryStoreStub) -> JobProcessor:
         store=store,
         write=write,
         graph_projection=build_graph_projection_service(),
-        session_consolidation=SessionConsolidationService(store=store, write=write),
+        session_consolidation=SessionConsolidationService(
+            store=store,
+            write=write,
+            completion_provider=MockCompletionProvider(result=no_memory_result()),
+            embedding_provider=MockEmbeddingProvider(),
+        ),
         lifecycle=LifecycleService(store=store),
     )
 

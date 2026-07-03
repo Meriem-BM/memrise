@@ -149,6 +149,9 @@ class EntityResolver:
         if len(alias_matches) == 1:
             return _resolved(alias_matches[0])
         if len(alias_matches) > 1:
+            exact_matches = [item for item in alias_matches if item.normalized_name == normalized]
+            if len(exact_matches) == 1:
+                return _resolved(exact_matches[0])
             return EntityResolutionResult(
                 status="ambiguous",
                 candidates=tuple(item.id for item in alias_matches),

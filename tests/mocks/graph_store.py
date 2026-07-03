@@ -14,6 +14,7 @@ class GraphClaimStoreStub:
     entities_by_identity: dict[tuple[str, str, str], str] = field(default_factory=dict)
     claims: dict[str, GraphClaim] = field(default_factory=dict)
     superseded_counts: list[tuple[str, str]] = field(default_factory=list)
+    ambiguous_mentions: list[dict[str, object]] = field(default_factory=list)
 
     async def upsert_entity(
         self,
@@ -209,6 +210,63 @@ class GraphClaimStoreStub:
             self.claims[claim_id] = replace(claim, status=GraphClaimStatus.CONTRADICTED)
             count += 1
         return count
+
+    async def record_ambiguous_mention(
+        self,
+        *,
+        namespace_id: str,
+        name: str,
+        core_type: str,
+        memory_version_id: str,
+        candidate_entity_ids: tuple[str, ...],
+    ) -> None:
+        self.ambiguous_mentions.append(
+            {
+                "namespace_id": namespace_id,
+                "name": name,
+                "core_type": core_type,
+                "memory_version_id": memory_version_id,
+                "candidate_entity_ids": list(candidate_entity_ids),
+            }
+        )
+
+    async def merge_entities(
+        self,
+        *,
+        namespace_id: str,
+        source_entity_id: str,
+        target_entity_id: str,
+    ) -> int:
+        source = self.entities.get(source_entity_id)
+        target = self.entities.get(target_entity_id)
+        if source is None or target is None or source_entity_id == target_entity_id:
+            return 0
+        if source.namespace_id != namespace_id or target.namespace_id != namespace_id:
+            return 0
+        moved = 0
+        for claim_id, claim in list(self.claims.items()):
+            changes = {}
+            if claim.subject_entity_id == source_entity_id:
+                changes["subject_entity_id"] = target_entity_id
+            if claim.object_entity_id == source_entity_id:
+                changes["object_entity_id"] = target_entity_id
+            if changes:
+                self.claims[claim_id] = replace(claim, **changes)
+                moved += len(changes)
+        merged_aliases = tuple(
+            merge_aliases(list(target.aliases), (source.canonical_name, *source.aliases))
+        )
+        updated = replace(
+            target,
+            aliases=merged_aliases,
+            stable_source_id=target.stable_source_id or source.stable_source_id,
+        )
+        self.entities[target_entity_id] = updated
+        del self.entities[source_entity_id]
+        self.entities_by_identity.pop(
+            (source.namespace_id, source.core_type, source.normalized_name), None
+        )
+        return moved
 
     async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None:
         claim = self.claims.get(claim_id)

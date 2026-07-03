@@ -57,7 +57,7 @@ typecheck:
 	pnpm --recursive typecheck
 
 test:
-	$(UV_ENV) uv run pytest tests/unit tests/api tests/contract
+	$(UV_ENV) uv run pytest tests/unit tests/api tests/contract tests/eval
 	pnpm --recursive test
 
 test-integration:

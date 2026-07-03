@@ -127,10 +127,27 @@ class EmbeddingVector(BaseModel):
     dimensions: int
 
 
+class ConsolidationResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(default="consolidation_v1")
+    candidates: list[ExtractedMemoryCandidate] = Field(default_factory=list, max_length=20)
+    model_name: str
+    prompt_version: str
+
+
 class CompletionProvider(Protocol):
     async def extract_memories(
         self, *, text: str, context: dict[str, object]
     ) -> ExtractionResult: ...
+
+    async def consolidate_memories(
+        self,
+        *,
+        episodes: list[dict[str, object]],
+        existing_memories: list[dict[str, object]],
+        context: dict[str, object],
+    ) -> ConsolidationResult: ...
 
 
 class EmbeddingProvider(Protocol):
