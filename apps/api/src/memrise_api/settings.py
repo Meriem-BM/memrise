@@ -5,7 +5,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
-    database_url: str | None = Field(default=None, alias="DATABASE_URL")
     memrise_api_key: str = Field(default="local-dev-key", alias="MEMRISE_API_KEY")
     memrise_cors_origins: str = Field(
         default="http://localhost:3000",

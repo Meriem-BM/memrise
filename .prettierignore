@@ -14,5 +14,4 @@ test-results/
 __pycache__/
 uv.lock
 pnpm-lock.yaml
-docs/openapi.json
 packages/sdk-typescript/src/generated/

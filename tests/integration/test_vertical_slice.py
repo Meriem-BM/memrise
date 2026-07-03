@@ -1,8 +1,7 @@
-import os
-
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+from tests.integration.db import database_url
 
 from memrise import Memory
 from memrise.core.enums import EpisodeKind, FeedbackOutcome, FeedbackSource
@@ -12,13 +11,6 @@ DEMO_EPISODE = (
 )
 
 pytestmark = pytest.mark.asyncio
-
-
-def database_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        pytest.skip("DATABASE_URL is required for PostgreSQL integration tests")
-    return url
 
 
 async def test_pgvector_extension_and_indexes_exist() -> None:

@@ -1,18 +1,9 @@
-import os
-
 import pytest
 
 from memrise import Memrise
 from memrise.core.enums import EpisodeKind
 
 pytestmark = pytest.mark.asyncio
-
-
-def database_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        pytest.skip("DATABASE_URL is required for PostgreSQL integration tests")
-    return url
 
 
 async def test_capture_replays_idempotency_key_end_to_end() -> None:

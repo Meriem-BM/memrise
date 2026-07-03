@@ -1,21 +1,13 @@
-import os
-
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
+from tests.integration.db import database_url
 
 from memrise.integrations.apache_age.repository import AgeGraphRepository
 from memrise.integrations.postgres.session import make_session_factory
 from memrise.runtime.ids import UuidGenerator
 
 pytestmark = pytest.mark.asyncio
-
-
-def database_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        pytest.skip("DATABASE_URL is required for PostgreSQL integration tests")
-    return url
 
 
 class FixedIdGenerator(UuidGenerator):

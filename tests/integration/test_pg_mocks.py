@@ -1,8 +1,8 @@
 import asyncio
-import os
 from uuid import uuid4
 
 import pytest
+from tests.integration.db import database_url
 from tests.mocks.graph_repository import GraphRepositoryStub
 from tests.mocks.providers import (
     MockCompletionProvider,
@@ -26,13 +26,6 @@ pytestmark = pytest.mark.asyncio
 DEMO_EPISODE = (
     "Atlas used npm before, but we now use pnpm. Never edit its generated lockfile manually."
 )
-
-
-def database_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        pytest.skip("DATABASE_URL is required for PostgreSQL integration tests")
-    return url
 
 
 def build_mock_memory() -> tuple[Memrise, MockCompletionProvider]:
