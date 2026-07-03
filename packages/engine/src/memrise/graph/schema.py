@@ -55,6 +55,8 @@ class GraphSchemaPack:
     type_aliases: dict[str, str]
     relation_aliases: dict[str, str]
     weak_relations: frozenset[str]
+    # Single-valued predicates: at most one active object per (subject, predicate).
+    functional_relations: frozenset[str]
 
     @property
     def version_label(self) -> str:
@@ -125,6 +127,9 @@ def pack_from_definition(
         weak_relations=frozenset(
             str(item) for item in definition.get("weak_relations", ("POSSIBLY_RELATED",))
         ),
+        functional_relations=frozenset(
+            str(item) for item in definition.get("functional_relations", ())
+        ),
     )
 
 
@@ -177,6 +182,7 @@ CORE_PACK_DEFINITION: dict[str, Any] = {
     },
     "relation_aliases": {},
     "weak_relations": ["CO_OCCURS_WITH", "MENTIONED_WITH", "POSSIBLY_RELATED"],
+    "functional_relations": ["BELONGS_TO", "DEPLOYS_ON"],
 }
 
 SOFTWARE_PACK_DEFINITION: dict[str, Any] = {
@@ -209,6 +215,7 @@ SOFTWARE_PACK_DEFINITION: dict[str, Any] = {
     },
     "relation_aliases": {"AFFECTED": "AFFECTS"},
     "weak_relations": ["CO_OCCURS_WITH", "MENTIONED_WITH", "POSSIBLY_RELATED"],
+    "functional_relations": ["BELONGS_TO", "DEPLOYS_ON"],
 }
 
 
@@ -412,6 +419,13 @@ async def prepare_relations(
         relations=merged,
     )
     return routes, validated
+
+
+def functional_relations_for_routes(routes: list[DomainRoute]) -> frozenset[str]:
+    names: set[str] = set()
+    for route in routes:
+        names |= route.pack.functional_relations
+    return frozenset(names)
 
 
 def schema_version_label(routes: list[DomainRoute]) -> str:

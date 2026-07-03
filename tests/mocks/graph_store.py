@@ -268,6 +268,46 @@ class GraphClaimStoreStub:
         )
         return moved
 
+    async def list_active_claims_by_subject_predicate(
+        self,
+        *,
+        namespace_id: str,
+        subject_entity_id: str,
+        predicate: str,
+    ) -> list[GraphClaim]:
+        return [
+            claim
+            for claim in self.claims.values()
+            if claim.namespace_id == namespace_id
+            and claim.subject_entity_id == subject_entity_id
+            and claim.predicate == predicate
+            and claim.status == GraphClaimStatus.ACTIVE
+        ]
+
+    async def supersede_claims_by_ids(
+        self,
+        *,
+        namespace_id: str,
+        claim_ids: list[str],
+        valid_until: datetime,
+        superseded_by_claim_id: str,
+    ) -> int:
+        superseded = 0
+        for claim_id in claim_ids:
+            claim = self.claims.get(claim_id)
+            if claim is None or claim.namespace_id != namespace_id:
+                continue
+            if claim.status != GraphClaimStatus.ACTIVE:
+                continue
+            self.claims[claim_id] = replace(
+                claim,
+                status=GraphClaimStatus.SUPERSEDED,
+                valid_until=valid_until,
+                superseded_by_claim_id=superseded_by_claim_id,
+            )
+            superseded += 1
+        return superseded
+
     async def update_claim_usefulness(self, *, claim_id: str, usefulness_score: float) -> None:
         claim = self.claims.get(claim_id)
         if claim is None:

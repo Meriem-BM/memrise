@@ -112,6 +112,23 @@ class GraphClaimStore(Protocol):
 
     async def expire_due_claims(self, *, now: datetime) -> int: ...
 
+    async def list_active_claims_by_subject_predicate(
+        self,
+        *,
+        namespace_id: str,
+        subject_entity_id: str,
+        predicate: str,
+    ) -> list[GraphClaim]: ...
+
+    async def supersede_claims_by_ids(
+        self,
+        *,
+        namespace_id: str,
+        claim_ids: list[str],
+        valid_until: datetime,
+        superseded_by_claim_id: str,
+    ) -> int: ...
+
     async def list_conflicting_active_claims(
         self,
         *,

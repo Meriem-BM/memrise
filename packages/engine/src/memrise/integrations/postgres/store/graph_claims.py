@@ -432,6 +432,52 @@ class PostgresGraphClaimStore:
                 row.status = GraphClaimStatus.EXPIRED.value
             return len(rows)
 
+    async def list_active_claims_by_subject_predicate(
+        self,
+        *,
+        namespace_id: str,
+        subject_entity_id: str,
+        predicate: str,
+    ) -> list[GraphClaim]:
+        async with self._session_factory() as session:
+            rows = (
+                await session.scalars(
+                    select(GraphClaimRow).where(
+                        GraphClaimRow.namespace_id == namespace_id,
+                        GraphClaimRow.subject_entity_id == subject_entity_id,
+                        GraphClaimRow.predicate == predicate,
+                        GraphClaimRow.status == GraphClaimStatus.ACTIVE.value,
+                    )
+                )
+            ).all()
+            return [_claim_from_row(row) for row in rows]
+
+    async def supersede_claims_by_ids(
+        self,
+        *,
+        namespace_id: str,
+        claim_ids: list[str],
+        valid_until: datetime,
+        superseded_by_claim_id: str,
+    ) -> int:
+        if not claim_ids:
+            return 0
+        async with session_scope(self._session_factory) as session:
+            rows = (
+                await session.scalars(
+                    select(GraphClaimRow).where(
+                        GraphClaimRow.namespace_id == namespace_id,
+                        GraphClaimRow.id.in_(claim_ids),
+                        GraphClaimRow.status == GraphClaimStatus.ACTIVE.value,
+                    )
+                )
+            ).all()
+            for row in rows:
+                row.status = GraphClaimStatus.SUPERSEDED.value
+                row.valid_until = valid_until
+                row.superseded_by_claim_id = superseded_by_claim_id
+            return len(rows)
+
     async def list_conflicting_active_claims(
         self,
         *,

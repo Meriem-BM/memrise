@@ -16,7 +16,12 @@ from memrise.graph.entities import (
     resolve_graph_node_type,
 )
 from memrise.graph.identity import stable_claim_id
-from memrise.graph.schema import ValidatedGraphRelation, prepare_relations, schema_version_label
+from memrise.graph.schema import (
+    ValidatedGraphRelation,
+    functional_relations_for_routes,
+    prepare_relations,
+    schema_version_label,
+)
 from memrise.graph.types import coerce_relation, normalize_entity_name
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
@@ -184,6 +189,7 @@ async def persist_graph_claims(
     validated_relations: list[ValidatedGraphRelation],
     schema_version: str = DEFAULT_SCHEMA_VERSION,
     extractor_version: str | None = None,
+    functional_relations: frozenset[str] = frozenset(),
 ) -> GraphClaimPersistenceResult:
     extracted_at = utc_now()
 
@@ -269,6 +275,33 @@ async def persist_graph_claims(
                     namespace_id=projection.namespace_id,
                     claim_ids=[item.id for item in conflicts],
                 )
+
+        if relation.relation in functional_relations:
+            rivals = [
+                rival
+                for rival in await store.list_active_claims_by_subject_predicate(
+                    namespace_id=projection.namespace_id,
+                    subject_entity_id=subject_entity_id,
+                    predicate=relation.relation,
+                )
+                if rival.object_entity_id != object_entity_id
+                and rival.supporting_memory_version_id != projection.memory_version_id
+            ]
+            if rivals:
+                rival_ids = [rival.id for rival in rivals]
+                if memory.version.status == MemoryStatus.CONTESTED:
+                    await store.mark_claims_contradicted(
+                        namespace_id=projection.namespace_id,
+                        claim_ids=rival_ids,
+                    )
+                else:
+                    # Single-valued predicate: the newest active statement wins.
+                    await store.supersede_claims_by_ids(
+                        namespace_id=projection.namespace_id,
+                        claim_ids=rival_ids,
+                        valid_until=extracted_at,
+                        superseded_by_claim_id=claim.id,
+                    )
 
     superseded_by_map: dict[str, str] = {}
     if projection.supersedes_version_id is not None and claims:
@@ -356,6 +389,7 @@ class GraphProjectionService:
             validated_relations=validated,
             schema_version=schema_version_label(routes),
             extractor_version=extractor_version,
+            functional_relations=functional_relations_for_routes(routes),
         )
         age_projection = build_graph_projection_from_claims(
             memory=memory,
