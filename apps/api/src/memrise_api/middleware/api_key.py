@@ -13,7 +13,7 @@ async def api_key_middleware(
 ) -> Response:
     if request.url.path in PUBLIC_PATHS:
         return await call_next(request)
-    settings = request.app.state.settings
+    settings = request.app.state.api_settings
     expected = settings.memrise_api_key
     provided = _api_key_from_request(request)
     if not expected or (provided is not None and compare_digest(provided, expected)):

@@ -35,7 +35,6 @@ class ApiMemoryStub:
 def _bootstrap_app_state(application) -> None:  # type: ignore[no-untyped-def]
     application.state.api_settings = ApiSettings()
     application.state.engine_settings = MemorySettings.model_construct(database_url=None)
-    application.state.settings = application.state.api_settings
     application.state.memory = ApiMemoryStub()
 
 

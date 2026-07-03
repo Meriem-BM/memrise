@@ -12,6 +12,5 @@ from memrise_api.settings import ApiSettings
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.api_settings = ApiSettings()
     app.state.engine_settings = MemorySettings()
-    app.state.settings = app.state.api_settings
     app.state.memory = Memrise.from_env()
     yield
