@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Database, History, ShieldAlert, Zap } from "lucide-react";
 import Link from "next/link";
-import type { components } from "memrise-memory-sdk";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusVariant } from "@/components/ui/badge";
@@ -13,8 +12,7 @@ import { getMemriseClient } from "@/lib/api";
 import { formatCount } from "@/lib/utils/format";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
 import { useCountUp } from "@/hooks/useCountUp";
-
-type MemorySummary = components["schemas"]["MemorySummary"];
+import type { MemorySummary } from "@/types/memory";
 
 export function StatusOverview() {
   const client = getMemriseClient();

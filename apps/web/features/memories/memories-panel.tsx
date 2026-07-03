@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import type { components } from "memrise-memory-sdk";
 
 import { PageHeader } from "@/components/page-header";
 import { Badge, statusVariant } from "@/components/ui/badge";
@@ -12,8 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getMemriseClient } from "@/lib/api";
 import { LOCAL_INSPECTOR_SCOPE } from "@/lib/scope";
-
-type MemorySummary = components["schemas"]["MemorySummary"];
+import type { MemorySummary } from "@/types/memory";
 
 export function MemoriesPanel() {
   const client = getMemriseClient();

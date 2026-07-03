@@ -1,19 +1,9 @@
-export type MemorySummary = {
-  memory_id: string;
-  subject: string;
-  key: string;
-  content: string;
-  status: string;
-  type: string;
-};
+import type { components } from "memrise-memory-sdk";
 
-export type JobSummary = {
-  id: string;
-  type: string;
-  status: string;
-  last_error: string | null;
-};
+export type MemorySummary = components["schemas"]["MemorySummary"];
+export type JobSummary = components["schemas"]["JobSummary"];
 
+/** Inspector view model for the playground capture flow. */
 export type CaptureResult = {
   episodeIds: string[];
   jobs: JobSummary[];

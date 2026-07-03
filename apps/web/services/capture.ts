@@ -25,12 +25,7 @@ export async function captureMessage(
   const jobs: JobSummary[] = [];
   for (const jobId of captureResult.job_ids) {
     const job = await client.waitForJob(jobId, { timeoutMs: 120_000, pollMs: 500 });
-    jobs.push({
-      id: job.id,
-      type: job.type,
-      status: job.status,
-      last_error: job.last_error,
-    });
+    jobs.push(job);
   }
 
   const listed = await client.listMemories({
@@ -38,16 +33,7 @@ export async function captureMessage(
     agentId: LOCAL_INSPECTOR_SCOPE.agentId,
     projectId: LOCAL_INSPECTOR_SCOPE.projectId,
   });
-  const memories = listed
-    .filter((memory) => Date.parse(memory.created_at) >= startedAt - 5_000)
-    .map((memory) => ({
-      memory_id: memory.memory_id,
-      subject: memory.subject,
-      key: memory.key,
-      content: memory.content,
-      status: memory.status,
-      type: memory.type,
-    }));
+  const memories = listed.filter((memory) => Date.parse(memory.created_at) >= startedAt - 5_000);
 
   return {
     episodeIds: captureResult.episode_ids,
