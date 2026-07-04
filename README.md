@@ -171,7 +171,7 @@ flowchart LR
   J --> D[Decay usefulness<br/>half-life 30d → neutral 0.5]
   J --> R[Resolve contested<br/>leader margin ≥ 0.15]
   J --> CE[Expire due<br/>graph claims + edges]
-  D -.harmful drives ≤ 0.05.-> AR[Archive version]
+  D -.->|harmful drives usefulness below 0.05| AR[Archive version]
 ```
 
 - **Validity expiry**: memories with a `valid_until` in the past move to `expired` but remain queryable as history.
