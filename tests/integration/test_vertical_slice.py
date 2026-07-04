@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -55,6 +57,10 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
     await engine.dispose()
 
 
+@pytest.mark.skipif(
+    not os.getenv("ALIBABA_CLOUD_API_KEY"),
+    reason="requires a live Qwen API key (ALIBABA_CLOUD_API_KEY) for extraction and embeddings",
+)
 async def test_vertical_slice_end_to_end() -> None:
     memory = Memrise.from_env()
     capture = await memory.capture(
