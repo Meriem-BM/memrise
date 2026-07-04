@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Memrise Inspector",
-  description: "Inspect the living memory of the Memrise framework",
+  title: "Memrise",
+  description: "Talk to a living memory — watch it recall, learn, and grow.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <SiteHeader />
             <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">{children}</main>
             <footer className="mx-auto w-full max-w-7xl px-6 py-8 text-xs text-faint">
-              <span className="font-mono">memrise</span> · inspector for a living memory system
+              <span className="font-mono">memrise</span> · a living memory for agents
             </footer>
           </div>
         </QueryProvider>

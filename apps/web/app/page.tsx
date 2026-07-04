@@ -1,5 +1,5 @@
-import { StatusOverview } from "@/features/retrievals/status-overview";
+import { SdkPage } from "@/features/sdk/sdk-page";
 
 export default function HomePage() {
-  return <StatusOverview />;
+  return <SdkPage />;
 }
