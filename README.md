@@ -4,7 +4,7 @@
 
 It stores experience as **immutable episodes**, consolidates durable knowledge into **versioned canonical memories**, projects accepted memories into a **temporal knowledge graph**, retrieves with **lexical + semantic + graph** signals fused together, and **learns from retrieval outcomes** without ever rewriting the truth it stored.
 
-It is not a chat app, a multi-agent framework, or a GraphRAG product. **PostgreSQL is the single source of truth** for episodes, canonical memories, embeddings, full-text search, graph claims, graph projection, retrieval traces, feedback, and background jobs.
+**PostgreSQL is the single source of truth** for episodes, canonical memories, embeddings, full-text search, graph claims, graph projection, retrieval traces, feedback, and background jobs.
 
 ---
 
@@ -48,45 +48,6 @@ Agents talk to Memrise only through the **HTTP API** and the **TypeScript SDK**,
 The diagram below is the target memory lifecycle; agents reach it through the Memory Gateway (the HTTP API + SDK).
 
 ![Memrise memory architecture](docs/memory-architecture.png)
-
-```mermaid
-flowchart LR
-  Agent([AI Agent])
-  Web[Next.js Inspector]
-
-  subgraph Edge["Gateway"]
-    SDK[TypeScript SDK<br/>memrise-memory-sdk]
-    API[FastAPI API<br/>auth · validation · DI]
-  end
-
-  subgraph Core["Python Engine"]
-    Write[Write path<br/>importance · extraction · reconcile]
-    Read[Read path<br/>fuse · rank · pack]
-    Learn[Learning<br/>feedback · lifecycle]
-    Graph[Graph projection]
-  end
-
-  Worker[[Worker<br/>background jobs]]
-
-  subgraph Store["PostgreSQL 18: source of truth"]
-    PG[(episodes · memories<br/>embeddings · FTS<br/>traces · feedback · jobs)]
-    Vec[[pgvector]]
-    AGE[[Apache AGE<br/>temporal graph]]
-  end
-
-  Qwen{{Qwen models<br/>inference + embeddings}}
-
-  Agent --> SDK --> API
-  Web --> SDK
-  API --> Write & Read & Learn
-  Worker --> Write & Learn & Graph
-  Write --> Qwen
-  Read --> Qwen
-  Write --> PG & Vec & AGE
-  Read --> PG & Vec & AGE
-  Graph --> AGE
-  Learn --> PG
-```
 
 ---
 
