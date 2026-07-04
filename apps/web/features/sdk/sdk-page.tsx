@@ -28,32 +28,44 @@ async function getSharedHighlighter(): Promise<Highlighter> {
 
 export function SdkPage() {
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="py-16 text-center">
-        <h1 className="text-5xl font-medium tracking-tight">Give your agent a memory.</h1>
-        <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted">
-          Five calls: capture what happens, retrieve what matters, tell it what helped, consolidate
-          what it learned. The console is built on exactly these — open it and see.
+    <div className="mx-auto max-w-5xl">
+      <div className="py-20 text-center">
+        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
+          <span className="size-2 rounded-full bg-emerald-400" />
+          <span>Framework-independent memory engine</span>
+        </div>
+        <h1 className="text-6xl font-semibold tracking-tight text-white">
+          Give your agent a memory.
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted">
+          Five simple calls: capture what happens, retrieve what matters, tell it what helped,
+          consolidate what it learned. The console is built on exactly these — open it and see.
         </p>
-        <Link
-          href="/console"
-          className="mt-8 inline-block rounded-full bg-white px-6 py-3 text-sm font-medium text-black transition-transform hover:scale-105"
-        >
-          Open the console
-        </Link>
+        <div className="mt-10 flex items-center justify-center gap-4">
+          <Link
+            href="/console"
+            className="inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-base font-semibold text-black transition-transform hover:scale-105"
+          >
+            Open the console
+          </Link>
+          <a
+            href="/api/memrise/openapi.json"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 px-8 py-4 text-base font-medium text-white/80 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            View API docs
+          </a>
+        </div>
       </div>
 
-      <div className="space-y-6 pb-20">
+      <div className="space-y-8 pb-24">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold text-white">Quick start</h2>
+          <p className="mt-2 text-muted">Get started in under a minute</p>
+        </div>
         <SnippetBlock snippet={INSTALL} />
         {SNIPPETS.map((snippet) => (
           <SnippetBlock key={snippet.id} snippet={snippet} />
         ))}
-        <p className="pt-4 text-center text-sm text-faint">
-          Full API reference:{" "}
-          <a href="/api/memrise/openapi.json" className="underline hover:text-white">
-            openapi.json
-          </a>
-        </p>
       </div>
     </div>
   );
@@ -84,19 +96,12 @@ function SnippetBlock({ snippet }: { snippet: Snippet }) {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-[#0d1117] shadow-2xl">
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="size-3 rounded-full bg-red-500/80" />
-            <div className="size-3 rounded-full bg-yellow-500/80" />
-            <div className="size-3 rounded-full bg-green-500/80" />
-          </div>
-          <h2 className="ml-3 text-sm font-medium text-white/90">{snippet.title}</h2>
-        </div>
+      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <h2 className="text-base font-semibold text-white/90">{snippet.title}</h2>
         <button
           type="button"
           onClick={copy}
-          className="text-white/40 transition-colors hover:text-white"
+          className="rounded-lg bg-white/5 px-3 py-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white"
           aria-label={`Copy ${snippet.title}`}
         >
           <ClientOnly fallback={<span className="inline-block size-3.5" aria-hidden />}>
@@ -104,7 +109,7 @@ function SnippetBlock({ snippet }: { snippet: Snippet }) {
           </ClientOnly>
         </button>
       </div>
-      <div className="overflow-x-auto p-4">
+      <div className="overflow-x-auto p-5">
         {highlightedCode ? (
           <div
             className="font-mono text-sm leading-relaxed"

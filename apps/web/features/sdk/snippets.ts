@@ -2,7 +2,7 @@ export type Snippet = { id: string; title: string; language: "ts" | "bash"; code
 
 export const INSTALL: Snippet = {
   id: "install",
-  title: "Install",
+  title: "Install the SDK",
   language: "bash",
   code: "pnpm add memrise-memory-sdk",
 };
@@ -10,7 +10,7 @@ export const INSTALL: Snippet = {
 export const SNIPPETS: Snippet[] = [
   {
     id: "client",
-    title: "Create a client",
+    title: "Initialize the client",
     language: "ts",
     code: `import { MemriseClient } from "memrise-memory-sdk";
 
@@ -21,7 +21,7 @@ const client = new MemriseClient({
   },
   {
     id: "capture",
-    title: "Learn capture an episode",
+    title: "Capture conversations as episodes",
     language: "ts",
     code: `const result = await client.capture({
   namespaceId: "my-app",
@@ -34,7 +34,7 @@ await client.waitForJob(result.job_ids[0]);`,
   },
   {
     id: "retrieve",
-    title: "Recall retrieve context",
+    title: "Retrieve relevant context",
     language: "ts",
     code: `const memory = await client.retrieve({
   namespaceId: "my-app",
@@ -46,7 +46,7 @@ console.log(memory.context); // ready to drop into your prompt`,
   },
   {
     id: "feedback",
-    title: "Improve send feedback",
+    title: "Send feedback to improve memory",
     language: "ts",
     code: `await client.feedback(memory.retrieval_id, {
   outcome: "helpful",
@@ -56,7 +56,7 @@ console.log(memory.context); // ready to drop into your prompt`,
   },
   {
     id: "consolidate",
-    title: "Distill consolidate a session",
+    title: "Consolidate session memories",
     language: "ts",
     code: `await client.consolidate("session-1", {
   namespaceId: "my-app",
@@ -66,7 +66,7 @@ console.log(memory.context); // ready to drop into your prompt`,
   },
   {
     id: "curl",
-    title: "Or raw HTTP",
+    title: "Use raw HTTP requests",
     language: "bash",
     code: `curl -X POST http://localhost:8000/v1/memories/retrieve \\
   -H "Authorization: Bearer $MEMRISE_API_KEY" \\
