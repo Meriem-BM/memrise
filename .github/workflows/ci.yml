@@ -31,6 +31,5 @@ jobs:
       - run: pnpm --recursive typecheck
       - run: pnpm --recursive test
       - run: pnpm --filter @memrise/web build
-      - run: uv run python scripts/export_openapi.py
-      - run: pnpm --filter memrise-memory-sdk generate
+      - run: make generate-sdk
       - run: git diff --exit-code contracts/openapi.json packages/sdk-typescript/src/generated/api-types.ts
