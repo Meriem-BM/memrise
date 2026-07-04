@@ -8,6 +8,7 @@ from memrise_api.middleware.body_limit import body_limit_middleware
 from memrise_api.middleware.error_handler import error_handler_middleware
 from memrise_api.middleware.request_id import request_id_middleware
 from memrise_api.routes import (
+    agent,
     episodes,
     graph,
     health,
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.middleware("http")(body_limit_middleware)
     app.middleware("http")(api_key_middleware)
     app.include_router(health.router)
+    app.include_router(agent.router)
     app.include_router(episodes.router)
     app.include_router(memories.router)
     app.include_router(retrievals.router)
