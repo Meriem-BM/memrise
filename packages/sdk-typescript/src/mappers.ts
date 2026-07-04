@@ -4,6 +4,7 @@ type CaptureBody = paths["/v1/episodes"]["post"]["requestBody"]["content"]["appl
 type RememberBody = paths["/v1/memories"]["post"]["requestBody"]["content"]["application/json"];
 type RetrieveBody =
   paths["/v1/memories/retrieve"]["post"]["requestBody"]["content"]["application/json"];
+type RespondBody = paths["/v1/agent/respond"]["post"]["requestBody"]["content"]["application/json"];
 type FeedbackBody =
   paths["/v1/retrievals/{retrieval_id}/feedback"]["post"]["requestBody"]["content"]["application/json"];
 type ConsolidateBody =
@@ -15,6 +16,7 @@ import type {
   ConsolidateInput,
   FeedbackInput,
   RememberInput,
+  RespondInput,
   RetrieveInput,
 } from "./client-types.js";
 
@@ -87,6 +89,21 @@ export function toRetrieveBody(input: RetrieveInput): RetrieveBody {
     limit: input.limit,
     graph_hops: input.graphHops,
   }) as RetrieveBody;
+}
+
+export function toRespondBody(input: RespondInput): RespondBody {
+  return stripUndefined({
+    namespace_id: input.namespaceId,
+    agent_id: input.agentId,
+    query: input.query,
+    user_id: input.userId,
+    project_id: input.projectId,
+    task_type: input.taskType,
+    token_budget: input.tokenBudget,
+    limit: input.limit,
+    graph_hops: input.graphHops,
+    use_memory: input.useMemory,
+  }) as RespondBody;
 }
 
 export function toFeedbackBody(input: FeedbackInput): FeedbackBody {

@@ -14,6 +14,8 @@ export type {
   MemriseClientOptions,
   GraphRelationInput,
   RememberInput,
+  RespondInput,
+  RespondResponse,
   RetrievalTraceSummary,
   RetrieveInput,
 } from "./client.js";

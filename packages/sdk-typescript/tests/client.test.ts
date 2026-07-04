@@ -126,6 +126,50 @@ describe("MemriseClient", () => {
     expect(url).toContain("session_id=session-1");
   });
 
+  it("sends agent respond requests with snake_case body", async () => {
+    let url = "";
+    let body: unknown;
+    const client = new MemriseClient({
+      baseUrl: "http://localhost:8000",
+      apiKey: "test-key",
+      fetchImpl: async (input, init) => {
+        url = String(input);
+        body = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({
+            answer: "Your name is Lina.",
+            model_name: "mock-qwen",
+            prompt_version: "agent_answer_v1",
+            memory_enabled: false,
+            retrieval: null,
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    await client.respond({
+      namespaceId: "ns",
+      agentId: "agent",
+      userId: "user",
+      projectId: "atlas",
+      query: "what's my name?",
+      graphHops: 1,
+      useMemory: false,
+    });
+
+    expect(url).toBe("http://localhost:8000/v1/agent/respond");
+    expect(body).toMatchObject({
+      namespace_id: "ns",
+      agent_id: "agent",
+      user_id: "user",
+      project_id: "atlas",
+      query: "what's my name?",
+      graph_hops: 1,
+      use_memory: false,
+    });
+  });
+
   it("lists episode candidates by id", async () => {
     let url = "";
     const client = new MemriseClient({

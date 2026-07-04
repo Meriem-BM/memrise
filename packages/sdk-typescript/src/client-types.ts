@@ -2,6 +2,7 @@ import type { paths } from "./generated/api-types.js";
 
 type CaptureBody = paths["/v1/episodes"]["post"]["requestBody"]["content"]["application/json"];
 type RememberBody = paths["/v1/memories"]["post"]["requestBody"]["content"]["application/json"];
+type RespondBody = paths["/v1/agent/respond"]["post"]["requestBody"]["content"]["application/json"];
 type FeedbackBody =
   paths["/v1/retrievals/{retrieval_id}/feedback"]["post"]["requestBody"]["content"]["application/json"];
 
@@ -58,6 +59,19 @@ export interface RetrieveInput {
   tokenBudget?: number;
   limit?: number;
   graphHops?: number;
+}
+
+export interface RespondInput {
+  namespaceId: string;
+  agentId: string;
+  query: string;
+  userId?: string;
+  projectId?: string;
+  taskType?: string;
+  tokenBudget?: RespondBody["token_budget"];
+  limit?: RespondBody["limit"];
+  graphHops?: RespondBody["graph_hops"];
+  useMemory?: RespondBody["use_memory"];
 }
 
 export interface FeedbackInput {

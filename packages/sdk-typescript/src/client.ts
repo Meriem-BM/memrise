@@ -5,6 +5,7 @@ import type {
   FeedbackInput,
   MemriseClientOptions,
   RememberInput,
+  RespondInput,
   RetrieveInput,
 } from "./client-types.js";
 import { MemoryClientError } from "./errors.js";
@@ -15,6 +16,7 @@ import {
   toFeedbackBody,
   toQuery,
   toRememberBody,
+  toRespondBody,
   toRetrieveBody,
 } from "./mappers.js";
 import { waitForJobCompletion } from "./polling.js";
@@ -25,6 +27,8 @@ type RememberResponse =
   paths["/v1/memories"]["post"]["responses"]["201"]["content"]["application/json"];
 type RetrieveResponse =
   paths["/v1/memories/retrieve"]["post"]["responses"]["201"]["content"]["application/json"];
+type RespondResponse =
+  paths["/v1/agent/respond"]["post"]["responses"]["201"]["content"]["application/json"];
 type FeedbackResponse =
   paths["/v1/retrievals/{retrieval_id}/feedback"]["post"]["responses"]["201"]["content"]["application/json"];
 type ConsolidateResponse =
@@ -68,9 +72,11 @@ export type {
   MemriseClientOptions,
   GraphRelationInput,
   RememberInput,
+  RespondInput,
   RetrievalTraceSummary,
   RetrieveInput,
 } from "./client-types.js";
+export type { RespondResponse };
 export type { CandidateStageSummary, EpisodeSummary, JobSummary };
 
 export class MemriseClient {
@@ -96,6 +102,10 @@ export class MemriseClient {
 
   retrieve(body: RetrieveInput, options: { signal?: AbortSignal } = {}): Promise<RetrieveResponse> {
     return this.#request("POST", "/v1/memories/retrieve", toRetrieveBody(body), options.signal);
+  }
+
+  respond(body: RespondInput, options: { signal?: AbortSignal } = {}): Promise<RespondResponse> {
+    return this.#request("POST", "/v1/agent/respond", toRespondBody(body), options.signal);
   }
 
   feedback(

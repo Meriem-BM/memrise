@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/agent/respond": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Respond */
+        post: operations["respond_v1_agent_respond_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/episodes": {
         parameters: {
             query?: never;
@@ -282,6 +299,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AgentRespondRequest */
+        AgentRespondRequest: {
+            /** Agent Id */
+            agent_id: string;
+            /**
+             * Graph Hops
+             * @default 1
+             */
+            graph_hops: number;
+            /**
+             * Limit
+             * @default 10
+             */
+            limit: number;
+            /** Namespace Id */
+            namespace_id: string;
+            /** Project Id */
+            project_id?: string | null;
+            /** Query */
+            query: string;
+            /** Task Type */
+            task_type?: string | null;
+            /**
+             * Token Budget
+             * @default 800
+             */
+            token_budget: number;
+            /**
+             * Use Memory
+             * @default true
+             */
+            use_memory: boolean;
+            /** User Id */
+            user_id?: string | null;
+        };
+        /** AgentRespondResponse */
+        AgentRespondResponse: {
+            /** Answer */
+            answer: string;
+            /** Memory Enabled */
+            memory_enabled: boolean;
+            /** Model Name */
+            model_name: string;
+            /** Prompt Version */
+            prompt_version: string;
+            retrieval: components["schemas"]["RetrieveResponse"] | null;
+        };
         /**
          * CandidateStageStatus
          * @enum {string}
@@ -887,6 +951,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    respond_v1_agent_respond_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentRespondRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRespondResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
