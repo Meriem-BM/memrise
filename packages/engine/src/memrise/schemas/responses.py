@@ -6,7 +6,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from memrise.core.enums import (
+    CandidateStageStatus,
     Criticality,
+    EpisodeKind,
     GraphEdgeStatus,
     JobStatus,
     JobType,
@@ -192,3 +194,46 @@ class JobSummary(BaseModel):
     last_error: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class EpisodeSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    namespace_id: str
+    agent_id: str
+    session_id: str
+    kind: EpisodeKind
+    content: str
+    user_id: str | None
+    project_id: str | None
+    created_at: datetime
+
+
+class CandidateStageSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    episode_id: str
+    candidate_index: int
+    status: CandidateStageStatus
+    promotion_score: float
+    rejection_reason: str | None
+    memory_version_id: str | None
+    memory_id: str | None
+    memory_type: str | None
+    subject: str | None
+    key: str | None
+    evidence_quote: str | None
+    classification: dict[str, Any]
+    created_at: datetime
+
+
+class LifecycleRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expired_memory_versions: int
+    decayed_versions: int
+    resolved_contested: int
+    expired_claims: int
+    expired_edges: int

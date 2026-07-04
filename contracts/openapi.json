@@ -1,6 +1,145 @@
 {
   "components": {
     "schemas": {
+      "CandidateStageStatus": {
+        "enum": [
+          "staged",
+          "promoted",
+          "rejected",
+          "failed"
+        ],
+        "title": "CandidateStageStatus",
+        "type": "string"
+      },
+      "CandidateStageSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_index": {
+            "title": "Candidate Index",
+            "type": "integer"
+          },
+          "classification": {
+            "additionalProperties": true,
+            "title": "Classification",
+            "type": "object"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "episode_id": {
+            "title": "Episode Id",
+            "type": "string"
+          },
+          "evidence_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence Quote"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "memory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Id"
+          },
+          "memory_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Type"
+          },
+          "memory_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Version Id"
+          },
+          "promotion_score": {
+            "title": "Promotion Score",
+            "type": "number"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CandidateStageStatus"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "id",
+          "episode_id",
+          "candidate_index",
+          "status",
+          "promotion_score",
+          "rejection_reason",
+          "memory_version_id",
+          "memory_id",
+          "memory_type",
+          "subject",
+          "key",
+          "evidence_quote",
+          "classification",
+          "created_at"
+        ],
+        "title": "CandidateStageSummary",
+        "type": "object"
+      },
       "CaptureEvent": {
         "additionalProperties": false,
         "properties": {
@@ -223,6 +362,74 @@
         ],
         "title": "EpisodeKind",
         "type": "string"
+      },
+      "EpisodeSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_id": {
+            "title": "Agent Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EpisodeKind"
+          },
+          "namespace_id": {
+            "title": "Namespace Id",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "namespace_id",
+          "agent_id",
+          "session_id",
+          "kind",
+          "content",
+          "user_id",
+          "project_id",
+          "created_at"
+        ],
+        "title": "EpisodeSummary",
+        "type": "object"
       },
       "FeedbackOutcome": {
         "enum": [
@@ -695,6 +902,40 @@
         ],
         "title": "JobType",
         "type": "string"
+      },
+      "LifecycleRunResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "decayed_versions": {
+            "title": "Decayed Versions",
+            "type": "integer"
+          },
+          "expired_claims": {
+            "title": "Expired Claims",
+            "type": "integer"
+          },
+          "expired_edges": {
+            "title": "Expired Edges",
+            "type": "integer"
+          },
+          "expired_memory_versions": {
+            "title": "Expired Memory Versions",
+            "type": "integer"
+          },
+          "resolved_contested": {
+            "title": "Resolved Contested",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expired_memory_versions",
+          "decayed_versions",
+          "resolved_contested",
+          "expired_claims",
+          "expired_edges"
+        ],
+        "title": "LifecycleRunResponse",
+        "type": "object"
       },
       "MemoryExplanation": {
         "additionalProperties": false,
@@ -1539,6 +1780,68 @@
       }
     },
     "/v1/episodes": {
+      "get": {
+        "operationId": "list_session_episodes_v1_episodes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "namespace_id",
+            "required": true,
+            "schema": {
+              "title": "Namespace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "agent_id",
+            "required": true,
+            "schema": {
+              "title": "Agent Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EpisodeSummary"
+                  },
+                  "title": "Response List Session Episodes V1 Episodes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Session Episodes",
+        "tags": [
+          "episodes"
+        ]
+      },
       "post": {
         "operationId": "capture_episode_v1_episodes_post",
         "requestBody": {
@@ -1574,6 +1877,52 @@
           }
         },
         "summary": "Capture Episode",
+        "tags": [
+          "episodes"
+        ]
+      }
+    },
+    "/v1/episodes/{episode_id}/candidates": {
+      "get": {
+        "operationId": "list_episode_candidates_v1_episodes__episode_id__candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "episode_id",
+            "required": true,
+            "schema": {
+              "title": "Episode Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CandidateStageSummary"
+                  },
+                  "title": "Response List Episode Candidates V1 Episodes  Episode Id  Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Episode Candidates",
         "tags": [
           "episodes"
         ]
@@ -1732,6 +2081,27 @@
         ]
       }
     },
+    "/v1/lifecycle/run": {
+      "post": {
+        "operationId": "run_lifecycle_v1_lifecycle_run_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Run Lifecycle",
+        "tags": [
+          "lifecycle"
+        ]
+      }
+    },
     "/v1/memories": {
       "get": {
         "operationId": "list_memories_v1_memories_get",
@@ -1784,6 +2154,26 @@
                 }
               ],
               "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "active",
+                    "contested"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
             }
           }
         ],

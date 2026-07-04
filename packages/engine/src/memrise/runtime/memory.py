@@ -10,10 +10,12 @@ from memrise.core.enums import (
     FeedbackSource,
     JobStatus,
     JobType,
+    MemoryStatus,
     MemoryType,
 )
 from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
 from memrise.core.models import BackgroundJob, CanonicalMemory, Episode, Feedback
+from memrise.core.time import utc_now
 from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
@@ -36,7 +38,11 @@ from memrise.runtime.mappers import (
 )
 from memrise.runtime.scope import scope_from_namespace_agent
 from memrise.runtime.settings import MemorySettings
-from memrise.schemas.mappers import memory_to_summary
+from memrise.schemas.mappers import (
+    candidate_stage_to_summary,
+    episode_to_summary,
+    memory_to_summary,
+)
 from memrise.schemas.requests import (
     CaptureEvent,
     CaptureRequest,
@@ -46,11 +52,14 @@ from memrise.schemas.requests import (
     RetrieveRequest,
 )
 from memrise.schemas.responses import (
+    CandidateStageSummary,
     CaptureResponse,
     ConsolidateResponse,
+    EpisodeSummary,
     FeedbackResponse,
     GraphNeighborhoodResponse,
     JobSummary,
+    LifecycleRunResponse,
     MemoryExplanation,
     MemorySummary,
     RememberResponse,
@@ -104,6 +113,7 @@ class Memrise:
         self._job_processor = services.job_processor
         self._clock = services.clock
         self._ids = services.ids
+        self._lifecycle = services.lifecycle
 
     @classmethod
     def from_env(cls) -> Memrise:
@@ -414,6 +424,7 @@ class Memrise:
         agent_id: str,
         user_id: str | None = None,
         project_id: str | None = None,
+        status: MemoryStatus | None = None,
     ) -> list[MemorySummary]:
         memories = await self._store.list_active_memories(
             scope=scope_from_namespace_agent(
@@ -422,9 +433,12 @@ class Memrise:
                 user_id=user_id,
                 project_id=project_id,
             ),
+            include_contested=status is not None,
             user_id_is_wildcard=user_id is None,
             project_id_is_wildcard=project_id is None,
         )
+        if status is not None:
+            memories = [memory for memory in memories if memory.version.status == status]
         return [memory_to_summary(memory) for memory in memories]
 
     async def get_memory(self, memory_id: str) -> MemorySummary | None:
@@ -460,6 +474,41 @@ class Memrise:
         return RetrievalDetail(
             retrieval_id=retrieval_id,
             items=[retrieval_item_to_summary(item) for item in items],
+        )
+
+    async def list_session_episodes(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        session_id: str,
+    ) -> list[EpisodeSummary]:
+        episodes = await self._store.list_session_episodes(
+            namespace_id=namespace_id,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
+        return [episode_to_summary(episode) for episode in episodes]
+
+    async def list_episode_candidates(self, episode_id: str) -> list[CandidateStageSummary]:
+        stages = await self._store.list_candidate_stages_for_episode(episode_id)
+        summaries: list[CandidateStageSummary] = []
+        for stage in stages:
+            memory_id: str | None = None
+            if stage.memory_version_id is not None:
+                memory = await self._store.get_memory_version_by_id(stage.memory_version_id)
+                memory_id = memory.identity.id if memory else None
+            summaries.append(candidate_stage_to_summary(stage, memory_id=memory_id))
+        return summaries
+
+    async def run_lifecycle(self) -> LifecycleRunResponse:
+        result = await self._lifecycle.run(utc_now())
+        return LifecycleRunResponse(
+            expired_memory_versions=result.expired_memory_versions,
+            decayed_versions=result.decayed_versions,
+            resolved_contested=result.resolved_contested,
+            expired_claims=result.expired_claims,
+            expired_edges=result.expired_edges,
         )
 
     async def graph_neighborhood(

@@ -17,9 +17,21 @@ class ApiMemoryStub:
         agent_id: str,
         user_id: str | None = None,
         project_id: str | None = None,
+        status: object | None = None,
     ) -> list[MemorySummary]:
-        del namespace_id, agent_id, user_id, project_id
+        del namespace_id, agent_id, user_id, project_id, status
         return []
+
+    async def run_lifecycle(self):
+        from memrise.schemas.responses import LifecycleRunResponse
+
+        return LifecycleRunResponse(
+            expired_memory_versions=0,
+            decayed_versions=0,
+            resolved_contested=0,
+            expired_claims=0,
+            expired_edges=0,
+        )
 
     async def explain(self, memory_id: str) -> MemoryExplanation:
         return MemoryExplanation(
@@ -30,6 +42,20 @@ class ApiMemoryStub:
             graph_edges=[],
             retrieval_feedback=[],
         )
+
+    async def list_session_episodes(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        session_id: str,
+    ) -> list:
+        del namespace_id, agent_id, session_id
+        return []
+
+    async def list_episode_candidates(self, episode_id: str) -> list:
+        del episode_id
+        return []
 
 
 def _bootstrap_app_state(application) -> None:  # type: ignore[no-untyped-def]

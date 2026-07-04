@@ -12,6 +12,7 @@ from memrise_api.routes import (
     graph,
     health,
     jobs,
+    lifecycle,
     memories,
     retrievals,
     sessions,
@@ -36,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router)
     app.include_router(graph.router)
     app.include_router(jobs.router)
+    app.include_router(lifecycle.router)
 
     api_settings = ApiSettings()
     cors_origins = [

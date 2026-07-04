@@ -1,5 +1,8 @@
+from typing import Literal
+
 from fastapi import APIRouter, Query, status
 
+from memrise.core.enums import MemoryStatus
 from memrise.schemas.requests import RememberRequest, RetrieveRequest
 from memrise.schemas.responses import (
     MemoryExplanation,
@@ -37,12 +40,14 @@ async def list_memories(
     agent_id: str = Query(...),
     user_id: str | None = Query(default=None),
     project_id: str | None = Query(default=None),
+    status: Literal["active", "contested"] | None = Query(default=None),
 ) -> list[MemorySummary]:
     return await memory.list_memories(
         namespace_id=namespace_id,
         agent_id=agent_id,
         user_id=user_id,
         project_id=project_id,
+        status=MemoryStatus(status) if status else None,
     )
 
 

@@ -25,6 +25,7 @@ class RuntimeServices:
     job_processor: JobProcessor
     clock: SystemClock
     ids: UuidGenerator
+    lifecycle: LifecycleService
 
 
 def build_runtime_services(
@@ -60,6 +61,12 @@ def build_runtime_services(
         ids=ids,
     )
     explain = ExplanationService(store, graph_repository=graph_repository)
+    lifecycle = LifecycleService(
+        store=store,
+        claim_store=graph_claim_store,
+        graph_repository=graph_repository,
+        half_life_days=usefulness_half_life_days,
+    )
     job_processor = JobProcessor(
         store=store,
         write=write,
@@ -71,12 +78,7 @@ def build_runtime_services(
             completion_provider=completion_provider,
             embedding_provider=embedding_provider,
         ),
-        lifecycle=LifecycleService(
-            store=store,
-            claim_store=graph_claim_store,
-            graph_repository=graph_repository,
-            half_life_days=usefulness_half_life_days,
-        ),
+        lifecycle=lifecycle,
     )
     return RuntimeServices(
         write=write,
@@ -85,4 +87,5 @@ def build_runtime_services(
         job_processor=job_processor,
         clock=SystemClock(),
         ids=ids,
+        lifecycle=lifecycle,
     )
