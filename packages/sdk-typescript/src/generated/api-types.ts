@@ -45,10 +45,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Session Episodes */
+        get: operations["list_session_episodes_v1_episodes_get"];
         put?: never;
         /** Capture Episode */
         post: operations["capture_episode_v1_episodes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/episodes/{episode_id}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Episode Candidates */
+        get: operations["list_episode_candidates_v1_episodes__episode_id__candidates_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -83,6 +101,23 @@ export interface paths {
         get: operations["get_job_v1_jobs__job_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/lifecycle/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Lifecycle */
+        post: operations["run_lifecycle_v1_lifecycle_run_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -247,6 +282,46 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * CandidateStageStatus
+         * @enum {string}
+         */
+        CandidateStageStatus: "staged" | "promoted" | "rejected" | "failed";
+        /** CandidateStageSummary */
+        CandidateStageSummary: {
+            /** Candidate Index */
+            candidate_index: number;
+            /** Classification */
+            classification: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Episode Id */
+            episode_id: string;
+            /** Evidence Quote */
+            evidence_quote: string | null;
+            /** Id */
+            id: string;
+            /** Key */
+            key: string | null;
+            /** Memory Id */
+            memory_id: string | null;
+            /** Memory Type */
+            memory_type: string | null;
+            /** Memory Version Id */
+            memory_version_id: string | null;
+            /** Promotion Score */
+            promotion_score: number;
+            /** Rejection Reason */
+            rejection_reason: string | null;
+            status: components["schemas"]["CandidateStageStatus"];
+            /** Subject */
+            subject: string | null;
+        };
         /** CaptureEvent */
         CaptureEvent: {
             /** Content */
@@ -314,6 +389,29 @@ export interface components {
          * @enum {string}
          */
         EpisodeKind: "user_message" | "agent_message" | "tool_call" | "tool_result" | "user_feedback" | "task_result" | "environment_observation";
+        /** EpisodeSummary */
+        EpisodeSummary: {
+            /** Agent Id */
+            agent_id: string;
+            /** Content */
+            content: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: string;
+            kind: components["schemas"]["EpisodeKind"];
+            /** Namespace Id */
+            namespace_id: string;
+            /** Project Id */
+            project_id: string | null;
+            /** Session Id */
+            session_id: string;
+            /** User Id */
+            user_id: string | null;
+        };
         /**
          * FeedbackOutcome
          * @enum {string}
@@ -466,6 +564,19 @@ export interface components {
          * @enum {string}
          */
         JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "project_graph" | "rebuild_graph";
+        /** LifecycleRunResponse */
+        LifecycleRunResponse: {
+            /** Decayed Versions */
+            decayed_versions: number;
+            /** Expired Claims */
+            expired_claims: number;
+            /** Expired Edges */
+            expired_edges: number;
+            /** Expired Memory Versions */
+            expired_memory_versions: number;
+            /** Resolved Contested */
+            resolved_contested: number;
+        };
         /** MemoryExplanation */
         MemoryExplanation: {
             current_version: components["schemas"]["MemorySummary"] | null;
@@ -780,6 +891,39 @@ export interface operations {
             };
         };
     };
+    list_session_episodes_v1_episodes_get: {
+        parameters: {
+            query: {
+                namespace_id: string;
+                agent_id: string;
+                session_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EpisodeSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     capture_episode_v1_episodes_post: {
         parameters: {
             query?: never;
@@ -800,6 +944,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaptureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_episode_candidates_v1_episodes__episode_id__candidates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                episode_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateStageSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -880,6 +1055,26 @@ export interface operations {
             };
         };
     };
+    run_lifecycle_v1_lifecycle_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleRunResponse"];
+                };
+            };
+        };
+    };
     list_memories_v1_memories_get: {
         parameters: {
             query: {
@@ -887,6 +1082,7 @@ export interface operations {
                 agent_id: string;
                 user_id?: string | null;
                 project_id?: string | null;
+                status?: ("active" | "contested") | null;
             };
             header?: never;
             path?: never;

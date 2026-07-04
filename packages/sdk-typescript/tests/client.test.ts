@@ -100,4 +100,96 @@ describe("MemriseClient", () => {
       "http://localhost:8000/health/ready",
     ]);
   });
+
+  it("lists session episodes with snake_case query params", async () => {
+    let url = "";
+    const client = new MemriseClient({
+      baseUrl: "http://localhost:8000",
+      apiKey: "test-key",
+      fetchImpl: async (input) => {
+        url = String(input);
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    });
+
+    await client.listSessionEpisodes({
+      namespaceId: "ns",
+      agentId: "agent",
+      sessionId: "session-1",
+    });
+
+    expect(url).toContain("/v1/episodes?");
+    expect(url).toContain("namespace_id=ns");
+    expect(url).toContain("session_id=session-1");
+  });
+
+  it("lists episode candidates by id", async () => {
+    let url = "";
+    const client = new MemriseClient({
+      baseUrl: "http://localhost:8000",
+      apiKey: "test-key",
+      fetchImpl: async (input) => {
+        url = String(input);
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    });
+
+    await client.listEpisodeCandidates("ep_1");
+
+    expect(url).toContain("/v1/episodes/ep_1/candidates");
+  });
+
+  it("runs the lifecycle sweep", async () => {
+    let url = "";
+    let method = "";
+    const client = new MemriseClient({
+      baseUrl: "http://localhost:8000",
+      apiKey: "test-key",
+      fetchImpl: async (input, init) => {
+        url = String(input);
+        method = String(init?.method);
+        return new Response(
+          JSON.stringify({
+            expired_memory_versions: 1,
+            decayed_versions: 2,
+            resolved_contested: 0,
+            expired_claims: 0,
+            expired_edges: 0,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    });
+
+    const result = await client.runLifecycle();
+
+    expect(url).toContain("/v1/lifecycle/run");
+    expect(method).toBe("POST");
+    expect(result.expired_memory_versions).toBe(1);
+  });
+
+  it("forwards the status filter when listing memories", async () => {
+    let url = "";
+    const client = new MemriseClient({
+      baseUrl: "http://localhost:8000",
+      apiKey: "test-key",
+      fetchImpl: async (input) => {
+        url = String(input);
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    });
+
+    await client.listMemories({ namespaceId: "ns", agentId: "agent", status: "contested" });
+
+    expect(url).toContain("status=contested");
+  });
 });

@@ -41,12 +41,23 @@ type GraphNeighborhoodResponse =
   paths["/v1/graph/neighborhood"]["get"]["responses"]["200"]["content"]["application/json"];
 type JobResponse =
   paths["/v1/jobs/{job_id}"]["get"]["responses"]["200"]["content"]["application/json"];
+type LifecycleRunResponse =
+  paths["/v1/lifecycle/run"]["post"]["responses"]["200"]["content"]["application/json"];
 type HealthLiveResponse =
   paths["/health/live"]["get"]["responses"]["200"]["content"]["application/json"];
 type HealthReadyResponse =
   paths["/health/ready"]["get"]["responses"]["200"]["content"]["application/json"];
 type RetrievalTraceSummary =
   paths["/v1/retrievals"]["get"]["responses"]["200"]["content"]["application/json"][number];
+type EpisodeSummary =
+  paths["/v1/episodes"]["get"]["responses"]["200"]["content"]["application/json"][number];
+type CandidateStageSummary =
+  paths["/v1/episodes/{episode_id}/candidates"]["get"]["responses"]["200"]["content"]["application/json"][number];
+type JobSummary = JobResponse;
+type MemoryStatus = NonNullable<paths["/v1/memories"]["get"]["parameters"]["query"]["status"]>;
+
+export type { LifecycleRunResponse, MemoryStatus };
+
 export type {
   CaptureEventInput,
   CaptureInput,
@@ -60,6 +71,7 @@ export type {
   RetrievalTraceSummary,
   RetrieveInput,
 } from "./client-types.js";
+export type { CandidateStageSummary, EpisodeSummary, JobSummary };
 
 export class MemriseClient {
   readonly #baseUrl: string;
@@ -148,6 +160,7 @@ export class MemriseClient {
       agentId: string;
       userId?: string;
       projectId?: string;
+      status?: MemoryStatus;
     },
     options: { signal?: AbortSignal } = {},
   ): Promise<MemoryResponse[]> {
@@ -158,7 +171,40 @@ export class MemriseClient {
         agent_id: query.agentId,
         user_id: query.userId,
         project_id: query.projectId,
+        status: query.status,
       })}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  listSessionEpisodes(
+    query: {
+      namespaceId: string;
+      agentId: string;
+      sessionId: string;
+    },
+    options: { signal?: AbortSignal } = {},
+  ): Promise<EpisodeSummary[]> {
+    return this.#request(
+      "GET",
+      `/v1/episodes?${toQuery({
+        namespace_id: query.namespaceId,
+        agent_id: query.agentId,
+        session_id: query.sessionId,
+      })}`,
+      undefined,
+      options.signal,
+    );
+  }
+
+  listEpisodeCandidates(
+    episodeId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<CandidateStageSummary[]> {
+    return this.#request(
+      "GET",
+      `/v1/episodes/${encodeURIComponent(episodeId)}/candidates`,
       undefined,
       options.signal,
     );
@@ -233,6 +279,10 @@ export class MemriseClient {
       jobId,
       options,
     );
+  }
+
+  runLifecycle(options: { signal?: AbortSignal } = {}): Promise<LifecycleRunResponse> {
+    return this.#request("POST", "/v1/lifecycle/run", undefined, options.signal);
   }
 
   healthLive(options: { signal?: AbortSignal } = {}): Promise<HealthLiveResponse> {
