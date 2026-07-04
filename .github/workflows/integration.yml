@@ -17,6 +17,7 @@ jobs:
         with:
           python-version: "3.14"
       - uses: astral-sh/setup-uv@v8.2.0
+      - run: cp .env.example .env
       - run: docker compose -f infra/compose.yaml build postgres
       - run: docker compose -f infra/compose.yaml up -d postgres
       - run: |
