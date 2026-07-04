@@ -21,7 +21,7 @@ const client = new MemriseClient({
   },
   {
     id: "capture",
-    title: "Learn — capture an episode",
+    title: "Learn capture an episode",
     language: "ts",
     code: `const result = await client.capture({
   namespaceId: "my-app",
@@ -34,7 +34,7 @@ await client.waitForJob(result.job_ids[0]);`,
   },
   {
     id: "retrieve",
-    title: "Recall — retrieve context",
+    title: "Recall retrieve context",
     language: "ts",
     code: `const memory = await client.retrieve({
   namespaceId: "my-app",
@@ -46,7 +46,7 @@ console.log(memory.context); // ready to drop into your prompt`,
   },
   {
     id: "feedback",
-    title: "Improve — send feedback",
+    title: "Improve send feedback",
     language: "ts",
     code: `await client.feedback(memory.retrieval_id, {
   outcome: "helpful",
@@ -56,7 +56,7 @@ console.log(memory.context); // ready to drop into your prompt`,
   },
   {
     id: "consolidate",
-    title: "Distill — consolidate a session",
+    title: "Distill consolidate a session",
     language: "ts",
     code: `await client.consolidate("session-1", {
   namespaceId: "my-app",
