@@ -1,8 +1,69 @@
-export type Snippet = { id: string; title: string; language: "ts" | "bash"; code: string };
+export type Snippet = {
+  id: string;
+  title: string;
+  filename: string;
+  language: "ts" | "bash";
+  code: string;
+};
+
+export type HeroTab = {
+  id: string;
+  label: string;
+  filename: string;
+  language: "ts" | "bash";
+  code: string;
+};
+
+/** Hero quickstart: the whole loop (learn then recall) in one script, per language. */
+export const HERO_TABS: HeroTab[] = [
+  {
+    id: "ts",
+    label: "TypeScript",
+    filename: "quickstart.ts",
+    language: "ts",
+    code: `import { MemriseClient } from "memrise-memory-sdk";
+
+const memory = new MemriseClient({ baseUrl: process.env.MEMRISE_URL });
+
+// Learn: the agent remembers what just happened
+await memory.capture({
+  namespaceId: "acme",
+  agentId: "assistant",
+  sessionId: "session-42",
+  events: [{ kind: "user_message", content: "We switched from npm to pnpm." }],
+});
+
+// Recall: ready to drop into the next prompt
+const { context } = await memory.retrieve({
+  namespaceId: "acme",
+  agentId: "assistant",
+  query: "which package manager do we use?",
+});
+
+console.log(context); // "- Acme uses pnpm for dependencies."`,
+  },
+  {
+    id: "curl",
+    label: "cURL",
+    filename: "quickstart.sh",
+    language: "bash",
+    code: `# Learn
+curl -X POST $MEMRISE_URL/v1/episodes \\
+  -H "Authorization: Bearer $MEMRISE_API_KEY" \\
+  -d '{"namespace_id":"acme","agent_id":"assistant","session_id":"session-42",
+       "events":[{"kind":"user_message","content":"We switched from npm to pnpm."}]}'
+
+# Recall
+curl -X POST $MEMRISE_URL/v1/memories/retrieve \\
+  -H "Authorization: Bearer $MEMRISE_API_KEY" \\
+  -d '{"namespace_id":"acme","agent_id":"assistant","query":"which package manager?"}'`,
+  },
+];
 
 export const INSTALL: Snippet = {
   id: "install",
-  title: "Install the SDK",
+  title: "Install",
+  filename: "terminal",
   language: "bash",
   code: "pnpm add memrise-memory-sdk",
 };
@@ -11,66 +72,64 @@ export const SNIPPETS: Snippet[] = [
   {
     id: "client",
     title: "Initialize the client",
+    filename: "client.ts",
     language: "ts",
     code: `import { MemriseClient } from "memrise-memory-sdk";
 
-const client = new MemriseClient({
+const memory = new MemriseClient({
   baseUrl: "http://localhost:8000",
   apiKey: process.env.MEMRISE_API_KEY, // omit in the browser behind a proxy
 });`,
   },
   {
     id: "capture",
-    title: "Capture conversations as episodes",
+    title: "Capture: turn conversation into memory",
+    filename: "capture.ts",
     language: "ts",
-    code: `const result = await client.capture({
-  namespaceId: "my-app",
+    code: `const result = await memory.capture({
+  namespaceId: "acme",
   agentId: "assistant",
-  sessionId: "session-1",
-  events: [{ kind: "user_message", content: "We now use pnpm instead of npm.", metadata: {} }],
+  sessionId: "session-42",
+  events: [{ kind: "user_message", content: "We now use pnpm instead of npm." }],
 });
-// extraction runs in the background:
-await client.waitForJob(result.job_ids[0]);`,
+
+// extraction runs in the background
+await memory.waitForJob(result.job_ids[0]);`,
   },
   {
     id: "retrieve",
-    title: "Retrieve relevant context",
+    title: "Retrieve: pull the right context",
+    filename: "retrieve.ts",
     language: "ts",
-    code: `const memory = await client.retrieve({
-  namespaceId: "my-app",
+    code: `const memories = await memory.retrieve({
+  namespaceId: "acme",
   agentId: "assistant",
   query: "which package manager do we use?",
   tokenBudget: 800,
 });
-console.log(memory.context); // ready to drop into your prompt`,
+
+console.log(memories.context); // ready to drop into your prompt`,
   },
   {
     id: "feedback",
-    title: "Send feedback to improve memory",
+    title: "Feedback: teach it what helped",
+    filename: "feedback.ts",
     language: "ts",
-    code: `await client.feedback(memory.retrieval_id, {
+    code: `await memory.feedback(memories.retrieval_id, {
   outcome: "helpful",
   source: "agent",
-  memoryVersionId: memory.memories[0].memory_version_id,
+  memoryVersionId: memories.memories[0].memory_version_id,
 });`,
   },
   {
     id: "consolidate",
-    title: "Consolidate session memories",
+    title: "Consolidate: distill a whole session",
+    filename: "consolidate.ts",
     language: "ts",
-    code: `await client.consolidate("session-1", {
-  namespaceId: "my-app",
+    code: `await memory.consolidate("session-42", {
+  namespaceId: "acme",
   agentId: "assistant",
-  sessionId: "session-1",
+  sessionId: "session-42",
 });`,
-  },
-  {
-    id: "curl",
-    title: "Use raw HTTP requests",
-    language: "bash",
-    code: `curl -X POST http://localhost:8000/v1/memories/retrieve \\
-  -H "Authorization: Bearer $MEMRISE_API_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"namespace_id":"my-app","agent_id":"assistant","query":"which package manager?"}'`,
   },
 ];

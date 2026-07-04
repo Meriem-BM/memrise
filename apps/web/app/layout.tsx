@@ -18,28 +18,12 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Memrise",
-  description: "Talk to a living memory — watch it recall, learn, and grow.",
+  description: "Talk to a living memory. Watch it recall, learn, and grow.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              .shiki {
-                background-color: transparent !important;
-              }
-              .shiki code {
-                font-family: var(--font-jetbrains-mono) !important;
-                font-size: 0.875rem;
-                line-height: 1.6;
-              }
-            `,
-          }}
-        />
-      </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
         <QueryProvider>
           <div className="relative flex min-h-screen flex-col selection:bg-white/30">

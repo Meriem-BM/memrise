@@ -173,7 +173,7 @@ test("console runs a full agent turn", async ({ page }) => {
 test("sdk page shows quickstart snippets", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByText("Give your agent a memory.")).toBeVisible();
-  await expect(page.getByText("pnpm add memrise-memory-sdk")).toBeVisible();
-  await expect(page.getByText("Recall — retrieve context")).toBeVisible();
+  await expect(page.getByText("Give your agent a memory")).toBeVisible();
+  await expect(page.getByText("Five calls. That’s the whole API.")).toBeVisible();
+  await expect(page.getByText("Retrieve — pull the right context")).toBeVisible();
 });

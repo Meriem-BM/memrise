@@ -211,3 +211,13 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* shiki (night-owl) code blocks — highlighted server-side */
+.shiki {
+  background-color: transparent !important;
+}
+.shiki code {
+  font-family: var(--font-jetbrains-mono) !important;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
