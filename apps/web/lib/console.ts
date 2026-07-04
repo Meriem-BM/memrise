@@ -79,7 +79,7 @@ export function turnSummary(
       : learn.skipped
         ? "extraction skipped"
         : promoted
-          ? `learned ${promoted.subject} · ${promoted.key}`
+          ? `learned ${promoted.subject} · ${(promoted.key ?? "").replaceAll("_", " ")}`
           : "nothing learned";
   return `${answerPart} · ${recallPart} · ${learnPart}`;
 }

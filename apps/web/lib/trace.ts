@@ -75,7 +75,7 @@ export function buildCaptureTrace(input: {
     steps.push({
       id: candidate.id,
       label: promoted
-        ? `${candidate.subject ?? "memory"} · ${candidate.key ?? ""}`
+        ? `${candidate.subject ?? "memory"} · ${(candidate.key ?? "").replaceAll("_", " ")}`
         : `Candidate ${candidate.candidate_index + 1} rejected`,
       decision: promoted ? "ok" : candidate.status === "failed" ? "failed" : "rejected",
       reasonCode: candidate.rejection_reason ?? undefined,
