@@ -58,6 +58,16 @@ class RetrieveResponse(BaseModel):
     context: str
 
 
+class AgentRespondResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str
+    model_name: str
+    prompt_version: str
+    memory_enabled: bool
+    retrieval: RetrieveResponse | None
+
+
 class RememberResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

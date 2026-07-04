@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from memrise.graph.schema import GraphSchemaPack
 from memrise.integrations.qwen.errors import QwenProviderError
 from memrise.ports.providers import (
+    AnswerResult,
     CompletionProvider,
     ConsolidationResult,
     EmbeddingProvider,
@@ -19,6 +20,7 @@ from memrise.runtime.settings import MemorySettings
 PROMPT_DIR = Path(__file__).parent / "prompts"
 MEMORY_EXTRACTION_PROMPT_VERSION = "memory_extraction_v1"
 CONSOLIDATION_PROMPT_VERSION = "consolidation_v1"
+AGENT_ANSWER_PROMPT_VERSION = "agent_answer_v1"
 
 
 class QwenCompletionProvider(CompletionProvider):
@@ -29,6 +31,9 @@ class QwenCompletionProvider(CompletionProvider):
             encoding="utf-8"
         )
         self._consolidation_prompt = (PROMPT_DIR / f"{CONSOLIDATION_PROMPT_VERSION}.md").read_text(
+            encoding="utf-8"
+        )
+        self._answer_prompt = (PROMPT_DIR / f"{AGENT_ANSWER_PROMPT_VERSION}.md").read_text(
             encoding="utf-8"
         )
 
@@ -90,6 +95,42 @@ class QwenCompletionProvider(CompletionProvider):
                 "model_name": self._settings.qwen_memory_model,
                 "prompt_version": CONSOLIDATION_PROMPT_VERSION,
             }
+        )
+
+    async def answer_question(
+        self,
+        *,
+        query: str,
+        context: str,
+        memories: list[dict[str, object]],
+    ) -> AnswerResult:
+        client = _require_client(self._client)
+        try:
+            completion = await client.chat.completions.create(
+                model=self._settings.qwen_memory_model,
+                messages=[
+                    {"role": "system", "content": self._answer_prompt},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "query": query,
+                                "context": context,
+                                "memories": memories,
+                            },
+                            ensure_ascii=False,
+                        ),
+                    },
+                ],
+            )
+        except AuthenticationError as exc:
+            msg = "Qwen answer authentication failed; verify ALIBABA_CLOUD_API_KEY"
+            raise QwenProviderError(msg) from exc
+        answer = (completion.choices[0].message.content or "").strip()
+        return AnswerResult(
+            answer=answer or "I could not produce an answer from the retrieved memory.",
+            model_name=self._settings.qwen_memory_model,
+            prompt_version=AGENT_ANSWER_PROMPT_VERSION,
         )
 
     async def _complete_validated_json[ModelT: BaseModel](

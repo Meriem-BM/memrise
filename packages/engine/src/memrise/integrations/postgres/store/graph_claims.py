@@ -258,8 +258,10 @@ class PostgresGraphClaimStore:
         stripped = term.strip()
         normalized = normalize_entity_name(stripped)
         pattern = f"%{stripped}%"
-        alias_values = func.jsonb_array_elements_text(GraphEntityRow.aliases).table_valued(
-            "alias_value"
+        alias_values = (
+            func.jsonb_array_elements_text(GraphEntityRow.aliases)
+            .table_valued("alias_value")
+            .render_derived(name="alias_values")
         )
         async with self._session_factory() as session:
             filters = [GraphEntityRow.namespace_id == namespace_id]

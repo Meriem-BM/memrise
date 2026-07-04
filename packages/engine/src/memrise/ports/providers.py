@@ -136,6 +136,14 @@ class ConsolidationResult(BaseModel):
     prompt_version: str
 
 
+class AnswerResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    answer: str
+    model_name: str
+    prompt_version: str
+
+
 class CompletionProvider(Protocol):
     async def extract_memories(
         self, *, text: str, context: dict[str, object]
@@ -148,6 +156,14 @@ class CompletionProvider(Protocol):
         existing_memories: list[dict[str, object]],
         context: dict[str, object],
     ) -> ConsolidationResult: ...
+
+    async def answer_question(
+        self,
+        *,
+        query: str,
+        context: str,
+        memories: list[dict[str, object]],
+    ) -> AnswerResult: ...
 
 
 class EmbeddingProvider(Protocol):

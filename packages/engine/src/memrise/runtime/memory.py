@@ -44,6 +44,7 @@ from memrise.schemas.mappers import (
     memory_to_summary,
 )
 from memrise.schemas.requests import (
+    AgentRespondRequest,
     CaptureEvent,
     CaptureRequest,
     ConsolidateRequest,
@@ -52,6 +53,7 @@ from memrise.schemas.requests import (
     RetrieveRequest,
 )
 from memrise.schemas.responses import (
+    AgentRespondResponse,
     CandidateStageSummary,
     CaptureResponse,
     ConsolidateResponse,
@@ -94,6 +96,7 @@ class Memrise:
         self._feedback_policy = feedback_policy
         self._token_counter = token_counter
         self._embedding_provider = embedding_provider
+        self._completion_provider = completion_provider
         services = build_runtime_services(
             store=store,
             jobs=jobs,
@@ -339,6 +342,64 @@ class Memrise:
             critical=await self._retrieved_memories(critical),
             memories=await self._retrieved_memories(memories),
             context=context,
+        )
+
+    async def respond(
+        self,
+        *,
+        namespace_id: str,
+        agent_id: str,
+        query: str,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        task_type: str | None = None,
+        token_budget: int = 800,
+        limit: int = 10,
+        graph_hops: int = 1,
+        use_memory: bool = True,
+    ) -> AgentRespondResponse:
+        request = AgentRespondRequest.model_validate(
+            {
+                "namespace_id": namespace_id,
+                "agent_id": agent_id,
+                "query": query,
+                "user_id": user_id,
+                "project_id": project_id,
+                "task_type": task_type,
+                "token_budget": token_budget,
+                "limit": limit,
+                "graph_hops": graph_hops,
+                "use_memory": use_memory,
+            }
+        )
+        if not request.use_memory:
+            answer = await self._completion_provider.answer_question(
+                query=request.query,
+                context="",
+                memories=[],
+            )
+            return AgentRespondResponse(
+                answer=answer.answer,
+                model_name=answer.model_name,
+                prompt_version=answer.prompt_version,
+                memory_enabled=False,
+                retrieval=None,
+            )
+        retrieval = await self.retrieve(**request.model_dump(exclude={"use_memory"}))
+        answer = await self._completion_provider.answer_question(
+            query=retrieval.query,
+            context=retrieval.context,
+            memories=[
+                memory.model_dump(mode="json")
+                for memory in [*retrieval.critical, *retrieval.memories]
+            ],
+        )
+        return AgentRespondResponse(
+            answer=answer.answer,
+            model_name=answer.model_name,
+            prompt_version=answer.prompt_version,
+            memory_enabled=True,
+            retrieval=retrieval,
         )
 
     async def feedback(

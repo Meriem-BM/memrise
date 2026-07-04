@@ -55,6 +55,10 @@ class RetrieveRequest(BaseModel):
     graph_hops: int = Field(default=1, ge=0, le=2)
 
 
+class AgentRespondRequest(RetrieveRequest):
+    use_memory: bool = True
+
+
 class GraphRelationInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
