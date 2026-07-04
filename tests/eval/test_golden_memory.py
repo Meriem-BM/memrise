@@ -18,6 +18,7 @@ from memrise.core.enums import JobStatus, JobType, MemoryStatus
 from memrise.core.models import BackgroundJob
 from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.ports.providers import (
+    AnswerResult,
     ConsolidationResult,
     EpisodeDurability,
     ExtractionResult,
@@ -69,6 +70,20 @@ class ScriptedCompletionProvider:
         del episodes, existing_memories, context
         return ConsolidationResult(
             candidates=[], model_name="golden", prompt_version="consolidation_v1"
+        )
+
+    async def answer_question(
+        self,
+        *,
+        query: str,
+        context: str,
+        memories: list[dict[str, object]],
+    ) -> AnswerResult:
+        del query, context, memories
+        return AnswerResult(
+            answer="golden answer",
+            model_name="golden",
+            prompt_version="agent_answer_v1",
         )
 
 

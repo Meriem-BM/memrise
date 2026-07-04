@@ -33,6 +33,30 @@ class ApiMemoryStub:
             expired_edges=0,
         )
 
+    async def respond(self, **kwargs: object):
+        from memrise.schemas.responses import AgentRespondResponse, RetrieveResponse
+
+        use_memory = kwargs.get("use_memory", True)
+        return AgentRespondResponse(
+            answer=f"mock answer for {kwargs.get('query')}",
+            model_name="mock-qwen",
+            prompt_version="agent_answer_v1",
+            memory_enabled=bool(use_memory),
+            retrieval=(
+                RetrieveResponse(
+                    retrieval_id="retrieval-1",
+                    query=str(kwargs.get("query")),
+                    token_budget=800,
+                    used_tokens=0,
+                    critical=[],
+                    memories=[],
+                    context="",
+                )
+                if use_memory
+                else None
+            ),
+        )
+
     async def explain(self, memory_id: str) -> MemoryExplanation:
         return MemoryExplanation(
             memory_id=memory_id,

@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 from memrise.ports.providers import (
+    AnswerResult,
     CompletionProvider,
     ConsolidationResult,
     EmbeddingProvider,
@@ -26,8 +27,16 @@ def empty_consolidation_result() -> ConsolidationResult:
 class MockCompletionProvider(CompletionProvider):
     result: ExtractionResult
     consolidation: ConsolidationResult = field(default_factory=empty_consolidation_result)
+    answer: AnswerResult = field(
+        default_factory=lambda: AnswerResult(
+            answer="Mock answer from memory.",
+            model_name="mock",
+            prompt_version="agent_answer_v1",
+        )
+    )
     captured: list[tuple[str, dict[str, object]]] = field(default_factory=list)
     consolidation_calls: list[dict[str, object]] = field(default_factory=list)
+    answer_calls: list[dict[str, object]] = field(default_factory=list)
 
     async def extract_memories(self, *, text: str, context: dict[str, object]) -> ExtractionResult:
         self.captured.append((text, context))
@@ -48,6 +57,22 @@ class MockCompletionProvider(CompletionProvider):
             }
         )
         return self.consolidation
+
+    async def answer_question(
+        self,
+        *,
+        query: str,
+        context: str,
+        memories: list[dict[str, object]],
+    ) -> AnswerResult:
+        self.answer_calls.append(
+            {
+                "query": query,
+                "context": context,
+                "memories": memories,
+            }
+        )
+        return self.answer
 
 
 MOCK_EMBEDDING_MODEL = "mock-embedding"
