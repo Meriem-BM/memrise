@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { getMemriseClient } from "@/lib/api";
 import {
   promotedSubject,
+  type AnswerResult,
   type ConsoleEntry,
   type LearnResult,
   type RecallResult,
@@ -31,9 +32,13 @@ export function useConsole() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [graphQuery, setGraphQuery] = useState<{ query: string; nonce: number } | null>(null);
   const [feedbackScores, setFeedbackScores] = useState<Record<string, number>>({});
+  const [memriseEnabled, setMemriseEnabled] = useState(true);
 
   const patchTurn = useCallback(
-    (id: string, changes: Partial<{ recall: RecallResult; learn: LearnResult }>) => {
+    (
+      id: string,
+      changes: Partial<{ answer: AnswerResult; recall: RecallResult; learn: LearnResult }>,
+    ) => {
       setEntries((current) =>
         current.map((entry) =>
           entry.kind === "turn" && entry.id === id ? { ...entry, ...changes } : entry,
@@ -46,42 +51,66 @@ export function useConsole() {
   const submit = useCallback(
     async (prompt: string) => {
       const id = crypto.randomUUID();
+      const useMemory = memriseEnabled;
       setEntries((current) => [
         ...current,
         {
           kind: "turn",
           id,
           prompt,
-          recall: { status: "pending" },
-          learn: { status: "pending" },
+          memoryEnabled: useMemory,
+          answer: { status: "pending" },
+          recall: useMemory ? { status: "pending" } : { status: "done", skipped: true, rows: [] },
+          learn: useMemory
+            ? { status: "pending" }
+            : { status: "done", skipped: true, jobs: [], candidates: [] },
         },
       ]);
       setSelectedId(id);
 
-      const recallTask = (async () => {
+      const responseTask = (async () => {
         try {
-          const response = await client.retrieve({ ...scope, query: prompt });
-          const detail = await client.getRetrieval(response.retrieval_id);
+          const response = await client.respond({ ...scope, query: prompt, useMemory });
+          const retrieval = response.retrieval;
+          const detail = retrieval ? await client.getRetrieval(retrieval.retrieval_id) : null;
           patchTurn(id, {
-            recall: {
+            answer: {
               status: "done",
-              retrievalId: response.retrieval_id,
-              rows: buildRetrievalRows(response, detail.items),
-              usedTokens: response.used_tokens,
-              tokenBudget: response.token_budget,
+              text: response.answer,
+              modelName: response.model_name,
+              promptVersion: response.prompt_version,
+              memoryEnabled: response.memory_enabled,
             },
+            recall: retrieval
+              ? {
+                  status: "done",
+                  retrievalId: retrieval.retrieval_id,
+                  rows: buildRetrievalRows(retrieval, detail?.items ?? []),
+                  usedTokens: retrieval.used_tokens,
+                  tokenBudget: retrieval.token_budget,
+                }
+              : { status: "done", skipped: true, rows: [] },
           });
         } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           patchTurn(id, {
-            recall: {
+            answer: {
               status: "error",
-              error: error instanceof Error ? error.message : String(error),
+              error: message,
+              memoryEnabled: useMemory,
             },
+            recall: useMemory
+              ? {
+                  status: "error",
+                  error: message,
+                }
+              : { status: "done", skipped: true, rows: [] },
           });
         }
       })();
 
       const learnTask = (async () => {
+        if (!useMemory) return;
         try {
           const result = await client.capture({
             ...scope,
@@ -112,9 +141,9 @@ export function useConsole() {
         }
       })();
 
-      await Promise.allSettled([recallTask, learnTask]);
+      await Promise.allSettled([responseTask, learnTask]);
     },
-    [client, patchTurn, sessionId],
+    [client, memriseEnabled, patchTurn, sessionId],
   );
 
   const newSession = useCallback(() => {
@@ -171,6 +200,8 @@ export function useConsole() {
     select,
     submit,
     newSession,
+    memriseEnabled,
+    setMemriseEnabled,
     feedbackFor,
     feedbackScores,
     graphQuery,

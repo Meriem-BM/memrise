@@ -12,7 +12,16 @@ import { useConsole } from "@/hooks/useConsole";
 
 export function ConsoleScreen() {
   const consoleState = useConsole();
-  const { entries, selectedId, select, submit, newSession, sessionId } = consoleState;
+  const {
+    entries,
+    selectedId,
+    select,
+    submit,
+    newSession,
+    sessionId,
+    memriseEnabled,
+    setMemriseEnabled,
+  } = consoleState;
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -23,6 +32,7 @@ export function ConsoleScreen() {
 
   const selected =
     entries.find((entry) => entry.kind === "turn" && entry.id === selectedId) ?? null;
+  const selectedTurn = selected && selected.kind === "turn" ? selected : null;
 
   const onSubmit = async () => {
     const prompt = draft.trim();
@@ -39,20 +49,51 @@ export function ConsoleScreen() {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <section className="flex min-h-[75vh] flex-col rounded-2xl border border-border bg-white/2">
-        <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
           <p className="font-mono text-xs text-faint">
-            memrise <span className="text-white/30">›</span> {sessionId}
+            memrise <span className="text-white/30">›</span>{" "}
+            <ClientOnly fallback="session-starting">{sessionId}</ClientOnly>
           </p>
-          <button
-            type="button"
-            onClick={newSession}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-xs text-white/50 transition-colors hover:text-white"
-          >
-            <ClientOnly fallback={<span className="inline-block size-3.5" aria-hidden />}>
-              <Plus size={13} />
-            </ClientOnly>
-            new session
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={memriseEnabled}
+              aria-label={memriseEnabled ? "Deactivate Memrise" : "Activate Memrise"}
+              onClick={() => setMemriseEnabled((current) => !current)}
+              className="group inline-flex h-8 min-w-32 items-center gap-2 rounded-full px-1.5 pr-2.5 font-mono text-[11px] text-white/55 transition-transform active:scale-[0.96]"
+            >
+              <span
+                className={cn(
+                  "relative h-5 w-9 rounded-full border transition-[background-color,border-color]",
+                  memriseEnabled
+                    ? "border-emerald-300/35 bg-emerald-300/20"
+                    : "border-white/15 bg-white/5",
+                )}
+                aria-hidden
+              >
+                <span
+                  className={cn(
+                    "absolute left-0.5 top-0.5 size-4 rounded-full transition-transform",
+                    memriseEnabled
+                      ? "translate-x-4 bg-emerald-200"
+                      : "translate-x-0 bg-white/40 group-hover:bg-white/65",
+                  )}
+                />
+              </span>
+              <span className={memriseEnabled ? "text-emerald-100" : "text-white/45"}>Memrise</span>
+            </button>
+            <button
+              type="button"
+              onClick={newSession}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-3 text-xs text-white/50 transition-colors hover:text-white"
+            >
+              <ClientOnly fallback={<span className="inline-block size-3.5" aria-hidden />}>
+                <Plus size={13} />
+              </ClientOnly>
+              new session
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 space-y-3 overflow-y-auto p-4 font-mono text-sm leading-relaxed">
@@ -79,11 +120,33 @@ export function ConsoleScreen() {
                     : "border-transparent hover:border-white/10",
                 )}
               >
-                <p className="wrap-break-word">
-                  <span className="text-white/35">&gt; </span>
-                  {entry.prompt}
+                <div className="flex items-start justify-between gap-3">
+                  <p className="wrap-break-word min-w-0">
+                    <span className="text-white/35">&gt; </span>
+                    {entry.prompt}
+                  </p>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px]",
+                      entry.memoryEnabled
+                        ? "border-emerald-300/30 text-emerald-100/80"
+                        : "border-white/10 text-white/35",
+                    )}
+                  >
+                    {entry.memoryEnabled ? "Memrise on" : "Memrise off"}
+                  </span>
+                </div>
+                {entry.answer.text ? (
+                  <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-white">
+                    {entry.answer.text}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-xs text-muted">
+                  {turnSummary(entry.answer, entry.recall, entry.learn)}
                 </p>
-                <p className="mt-1 text-xs text-muted">{turnSummary(entry.recall, entry.learn)}</p>
+                {entry.answer.error ? (
+                  <p className="mt-1 text-xs text-danger">{entry.answer.error}</p>
+                ) : null}
                 {entry.recall.error ? (
                   <p className="mt-1 text-xs text-danger">{entry.recall.error}</p>
                 ) : null}
@@ -120,11 +183,14 @@ export function ConsoleScreen() {
 
       <aside className="flex min-h-[75vh] flex-col gap-4">
         <TracePanel
-          turn={selected && selected.kind === "turn" ? selected : null}
+          turn={selectedTurn}
           feedbackFor={consoleState.feedbackFor}
           feedbackScores={consoleState.feedbackScores}
         />
-        <GraphPanel graphQuery={consoleState.graphQuery} />
+        <GraphPanel
+          graphQuery={selectedTurn?.memoryEnabled === false ? null : consoleState.graphQuery}
+          turn={selectedTurn}
+        />
       </aside>
     </div>
   );

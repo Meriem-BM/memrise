@@ -1,37 +1,58 @@
 import { expect, test } from "@playwright/test";
 
 test("console runs a full agent turn", async ({ page }) => {
-  await page.route("**/v1/memories/retrieve", async (route) => {
+  await page.route("**/v1/agent/respond", async (route) => {
+    const request = route.request().postDataJSON() as { query: string; use_memory?: boolean };
+    if (request.use_memory === false) {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          answer: "I do not know from this turn alone.",
+          model_name: "qwen3.6-flash",
+          prompt_version: "agent_answer_v1",
+          memory_enabled: false,
+          retrieval: null,
+        }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 201,
       contentType: "application/json",
       body: JSON.stringify({
-        retrieval_id: "retrieval_1",
-        query: "q",
-        token_budget: 800,
-        used_tokens: 9,
-        critical: [],
-        memories: [
-          {
-            memory_id: "mem_1",
-            memory_version_id: "memv_1",
-            type: "decision",
-            subject: "Atlas",
-            key: "package_manager",
-            content: "Atlas uses pnpm for dependencies.",
-            status: "active",
-            criticality: "normal",
-            confidence: 0.9,
-            importance: 0.7,
-            usefulness_score: 0.5,
-            token_count: 9,
-            source_types: [],
-            selected_for_context: true,
-            provenance_episode_ids: [],
-            explanation: {},
-          },
-        ],
-        context: "- Atlas uses pnpm for dependencies.",
+        answer: "Atlas uses pnpm for dependencies.",
+        model_name: "qwen3.6-flash",
+        prompt_version: "agent_answer_v1",
+        memory_enabled: true,
+        retrieval: {
+          retrieval_id: "retrieval_1",
+          query: request.query,
+          token_budget: 800,
+          used_tokens: 9,
+          critical: [],
+          memories: [
+            {
+              memory_id: "mem_1",
+              memory_version_id: "memv_1",
+              type: "decision",
+              subject: "Atlas",
+              key: "package_manager",
+              content: "Atlas uses pnpm for dependencies.",
+              status: "active",
+              criticality: "normal",
+              confidence: 0.9,
+              importance: 0.7,
+              usefulness_score: 0.5,
+              token_count: 9,
+              source_types: [],
+              selected_for_context: true,
+              provenance_episode_ids: [],
+              explanation: {},
+            },
+          ],
+          context: "- Atlas uses pnpm for dependencies.",
+        },
       }),
     });
   });
@@ -119,12 +140,34 @@ test("console runs a full agent turn", async ({ page }) => {
   });
 
   await page.goto("/console");
+  await expect(page.getByRole("switch", { name: "Deactivate Memrise" })).toBeVisible();
   await page.getByPlaceholder("talk to the memory…").fill("we now use pnpm instead of npm");
   await page.keyboard.press("Enter");
 
-  await expect(page.getByText("recalled 1 · learned Atlas · package_manager")).toBeVisible();
-  await expect(page.getByText("Atlas uses pnpm for dependencies.")).toBeVisible();
+  await expect(
+    page.getByText("answered with Memrise · recalled 1 · learned Atlas · package_manager"),
+  ).toBeVisible();
+  await expect(page.getByText("Memrise on").first()).toBeVisible();
+  await expect(page.getByText("Atlas uses pnpm for dependencies.").first()).toBeVisible();
+  await expect(page.getByText("qwen3.6-flash · agent_answer_v1 · Memrise on")).toBeVisible();
   await expect(page.getByText("lexical")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Showing memory-derived relations while the projected knowledge graph is empty.",
+    ),
+  ).toBeVisible();
+  await expect(page.locator(".react-flow__edge-text").filter({ hasText: /^USES$/ })).toBeVisible();
+
+  await page.getByRole("switch", { name: "Deactivate Memrise" }).click();
+  await expect(page.getByRole("switch", { name: "Activate Memrise" })).toBeVisible();
+  await page.getByPlaceholder("talk to the memory…").fill("what package manager does Atlas use?");
+  await page.keyboard.press("Enter");
+
+  await expect(
+    page.getByText("answered without Memrise · recall off · extraction skipped"),
+  ).toBeVisible();
+  await expect(page.getByText("I do not know from this turn alone.").first()).toBeVisible();
+  await expect(page.getByText("Memrise off").first()).toBeVisible();
 });
 
 test("sdk page shows quickstart snippets", async ({ page }) => {

@@ -28,11 +28,30 @@ export function TracePanel({
       ) : (
         <div className="mt-3 space-y-5">
           <div>
+            <h3 className="text-sm font-medium">Answer</h3>
+            {turn.answer.status === "pending" ? (
+              <p className="mt-2 text-sm text-muted">asking Qwen…</p>
+            ) : turn.answer.status === "error" ? (
+              <p className="mt-2 text-sm text-danger">{turn.answer.error}</p>
+            ) : (
+              <div className="mt-2 rounded-lg border border-border bg-white/2 p-3">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.answer.text}</p>
+                <p className="mt-3 font-mono text-[11px] text-faint">
+                  {turn.answer.modelName} · {turn.answer.promptVersion} ·{" "}
+                  {turn.memoryEnabled ? "Memrise on" : "Memrise off"}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div>
             <h3 className="text-sm font-medium">Recall</h3>
             {turn.recall.status === "pending" ? (
               <p className="mt-2 text-sm text-muted">retrieving…</p>
             ) : turn.recall.status === "error" ? (
               <p className="mt-2 text-sm text-danger">{turn.recall.error}</p>
+            ) : turn.recall.skipped ? (
+              <p className="mt-2 text-sm text-muted">Memrise was off for this turn.</p>
             ) : (turn.recall.rows?.length ?? 0) === 0 ? (
               <p className="mt-2 text-sm text-muted">nothing relevant in memory yet.</p>
             ) : (
@@ -104,6 +123,8 @@ export function TracePanel({
               <p className="mt-2 text-sm text-muted">extracting…</p>
             ) : turn.learn.status === "error" ? (
               <p className="mt-2 text-sm text-danger">{turn.learn.error}</p>
+            ) : turn.learn.skipped && !turn.memoryEnabled ? (
+              <p className="mt-2 text-sm text-muted">Memrise was off for this turn.</p>
             ) : (
               <div className="mt-2">
                 <PipelineTrace
