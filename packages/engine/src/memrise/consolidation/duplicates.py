@@ -32,13 +32,16 @@ def find_duplicate_clusters(
     *,
     threshold: float = MERGE_SIMILARITY_THRESHOLD,
 ) -> list[DuplicateCluster]:
-    """Greedily group same-scope memories whose embeddings are near-identical.
+    """Group same-scope memories whose embeddings are near-identical.
 
-    The strongest memory (usefulness+confidence, then newest version) seeds each
-    cluster and survives; every other same-scope memory within ``threshold``
-    cosine similarity becomes one of its duplicates. Pure and deterministic so it
-    can be unit-tested without a database or model. Only memories that carry an
-    embedding from the same model are comparable.
+    Uses single-linkage: a memory joins a cluster when it is within ``threshold``
+    cosine similarity of ANY member, not just the seed. This matters for real
+    paraphrases, where A~B and B~C can both clear the bar while A~C sits just
+    under it, so C would otherwise escape the merge. The strongest memory
+    (usefulness+confidence, then newest version) seeds each cluster and survives.
+
+    Pure and deterministic so it can be unit-tested without a database or model.
+    Only memories carrying an embedding from the same model are comparable.
     """
     embeddable = [
         (memory, embedding)
@@ -51,18 +54,27 @@ def find_duplicate_clusters(
     for seed, seed_vector in ordered:
         if seed.version.id in assigned:
             continue
-        duplicates: list[CanonicalMemory] = []
-        for other, other_vector in ordered:
-            if other.version.id == seed.version.id or other.version.id in assigned:
-                continue
-            if seed.version.embedding_model != other.version.embedding_model:
-                continue
-            if not _same_scope(seed, other):
-                continue
-            if cosine_similarity(seed_vector, other_vector) >= threshold:
-                duplicates.append(other)
-                assigned.add(other.version.id)
+        members = [(seed, seed_vector)]
+        member_ids = {seed.version.id}
+        grew = True
+        while grew:
+            grew = False
+            for other, other_vector in ordered:
+                if other.version.id in assigned or other.version.id in member_ids:
+                    continue
+                if seed.version.embedding_model != other.version.embedding_model:
+                    continue
+                if not _same_scope(seed, other):
+                    continue
+                if any(
+                    cosine_similarity(member_vector, other_vector) >= threshold
+                    for _, member_vector in members
+                ):
+                    members.append((other, other_vector))
+                    member_ids.add(other.version.id)
+                    grew = True
+        duplicates = [memory for memory, _ in members if memory.version.id != seed.version.id]
         if duplicates:
-            assigned.add(seed.version.id)
+            assigned.update(member_ids)
             clusters.append(DuplicateCluster(survivor=seed, duplicates=duplicates))
     return clusters

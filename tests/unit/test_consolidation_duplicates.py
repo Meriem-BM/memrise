@@ -38,6 +38,32 @@ def test_find_duplicate_clusters_groups_near_identical() -> None:
     assert [d.version.id for d in cluster.duplicates] == ["memv_b"]
 
 
+def test_find_duplicate_clusters_uses_single_linkage() -> None:
+    # Real-embedding case: A~B and B~C clear the bar, but A~C sits just under it.
+    # C must still merge, linked through B, or it escapes the cluster.
+    # Unit vectors at 0deg, 15deg, 30deg: adjacent steps clear cos15=0.966 >= 0.93,
+    # but the ends sit at cos30=0.866 < 0.93.
+    a = _mem("memv_a", subject="lockfile", key="rule", vector=[1.0, 0.0], confidence=0.95)
+    b = _mem("memv_b", subject="pnpm_lock", key="edit", vector=[0.96593, 0.25882], confidence=0.7)
+    c = _mem("memv_c", subject="gen_lock", key="edits", vector=[0.86603, 0.5], confidence=0.6)
+
+    # Sanity: A~C is below the default threshold while A~B and B~C are above it.
+    from memrise.consolidation.duplicates import MERGE_SIMILARITY_THRESHOLD
+    from memrise.core.embeddings import cosine_similarity
+
+    va, vb, vc = a.version.embedding, b.version.embedding, c.version.embedding
+    assert va is not None and vb is not None and vc is not None
+    assert cosine_similarity(va, vc) < MERGE_SIMILARITY_THRESHOLD
+    assert cosine_similarity(va, vb) >= MERGE_SIMILARITY_THRESHOLD
+    assert cosine_similarity(vb, vc) >= MERGE_SIMILARITY_THRESHOLD
+
+    clusters = find_duplicate_clusters([a, b, c])
+
+    assert len(clusters) == 1
+    assert clusters[0].survivor.version.id == "memv_a"
+    assert {d.version.id for d in clusters[0].duplicates} == {"memv_b", "memv_c"}
+
+
 def test_find_duplicate_clusters_ignores_cross_model_and_cross_scope() -> None:
     a = _mem("memv_a", subject="s", key="k", vector=[1.0, 0.0])
     other_model = make_memory(
