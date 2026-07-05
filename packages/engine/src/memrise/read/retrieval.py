@@ -1,3 +1,4 @@
+from asyncio import gather
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -155,15 +156,6 @@ class RetrievalService:
         limit: int,
         graph_hops: int,
     ) -> tuple[str, list[CanonicalMemory], list[CanonicalMemory], str, int]:
-        critical_pool = [
-            memory
-            for memory in await self._store.list_critical_memories(
-                scope=scope, limit=CRITICAL_CHANNEL_LIMIT
-            )
-            if self._is_applicable(memory) and task_type_matches(memory, task_type) is not False
-        ]
-        critical = self._select_critical(critical_pool, query, token_budget)
-
         def admissible(memory: CanonicalMemory) -> bool:
             return (
                 self._is_applicable(memory)
@@ -171,31 +163,21 @@ class RetrievalService:
                 and memory.version.criticality != Criticality.MUST_INCLUDE
             )
 
-        structured_pool = [
-            memory
-            for memory in await self._store.search_structured(
-                scope=scope, query=query, limit=CHANNEL_LIMIT
-            )
-            if admissible(memory) and structured_score(query, memory) > 0.0
-        ]
-        structured_scores = {
-            memory.version.id: structured_score(query, memory) for memory in structured_pool
-        }
-        structured = _ranked_candidates(
-            structured_pool,
-            source_type=RetrievalSourceType.STRUCTURED,
-            score_by_version_id=structured_scores,
+        # The channels are independent bounded lookups and each store call opens its
+        # own SQLAlchemy session (no shared session is passed across tasks), so they
+        # run concurrently to cut read latency. See #14 for candidate bounding.
+        critical_pool, structured, lexical, semantic, graph = await gather(
+            self._critical_pool(scope=scope, task_type=task_type),
+            self._structured_candidates(scope=scope, query=query, admit=admissible),
+            self._lexical_candidates(scope=scope, query=query, admit=admissible),
+            self._semantic_candidates(scope=scope, query=query, admit=admissible),
+            self._graph_candidates(
+                scope=scope, query=query, graph_hops=graph_hops, admit=admissible
+            ),
         )
-        lexical = await self._lexical_candidates(scope=scope, query=query, admit=admissible)
-        semantic = await self._semantic_candidates(scope=scope, query=query, admit=admissible)
+        critical = self._select_critical(critical_pool, query, token_budget)
         lexical_scores = {c.memory.version.id: c.score for c in lexical}
         semantic_scores = {c.memory.version.id: c.score for c in semantic}
-        graph = await self._graph_candidates(
-            scope=scope,
-            query=query,
-            graph_hops=graph_hops,
-            admit=admissible,
-        )
 
         # Bounded ranking pool: the deduped union of channel candidates. Retrieval
         # never materializes the full active scope.
@@ -267,6 +249,41 @@ class RetrievalService:
             memory for memory in selected if memory.version.criticality != Criticality.MUST_INCLUDE
         ]
         return retrieval_id, selected_critical, selected_normal, context, used_tokens
+
+    async def _critical_pool(
+        self,
+        *,
+        scope: Scope,
+        task_type: str | None,
+    ) -> list[CanonicalMemory]:
+        return [
+            memory
+            for memory in await self._store.list_critical_memories(
+                scope=scope, limit=CRITICAL_CHANNEL_LIMIT
+            )
+            if self._is_applicable(memory) and task_type_matches(memory, task_type) is not False
+        ]
+
+    async def _structured_candidates(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        admit: Callable[[CanonicalMemory], bool],
+    ) -> list[RetrievalCandidate]:
+        pool = [
+            memory
+            for memory in await self._store.search_structured(
+                scope=scope, query=query, limit=CHANNEL_LIMIT
+            )
+            if admit(memory) and structured_score(query, memory) > 0.0
+        ]
+        scores = {memory.version.id: structured_score(query, memory) for memory in pool}
+        return _ranked_candidates(
+            pool,
+            source_type=RetrievalSourceType.STRUCTURED,
+            score_by_version_id=scores,
+        )
 
     async def _lexical_candidates(
         self,

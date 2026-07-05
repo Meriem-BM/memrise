@@ -305,3 +305,85 @@ async def test_trace_only_persists_bounded_channel_candidates() -> None:
     traced_ids = {item.memory_version_id for item in store.retrieval_items[retrieval_id]}
     assert "memv_hit" in traced_ids
     assert "memv_noise" not in traced_ids
+
+
+async def test_retrieval_runs_channels_concurrently() -> None:
+    import asyncio
+
+    store = MemoryStoreStub(
+        memories=[make_memory(version_id="memv_pnpm", content="Atlas uses pnpm.")]
+    )
+    # Barrier of 4 = the four store-backed channels (critical, structured, lexical,
+    # semantic). If retrieval awaited them sequentially, the first would block on the
+    # barrier forever and wait_for would time out. Reaching all 4 parties proves they
+    # run concurrently.
+    barrier = asyncio.Barrier(4)
+
+    def gate(method):  # type: ignore[no-untyped-def]
+        async def wrapped(*args, **kwargs):  # type: ignore[no-untyped-def]
+            await barrier.wait()
+            return await method(*args, **kwargs)
+
+        return wrapped
+
+    store.list_critical_memories = gate(store.list_critical_memories)  # type: ignore[method-assign]
+    store.search_structured = gate(store.search_structured)  # type: ignore[method-assign]
+    store.search_lexical = gate(store.search_lexical)  # type: ignore[method-assign]
+    store.search_semantic = gate(store.search_semantic)  # type: ignore[method-assign]
+
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    retrieval_id, _, _, _, _ = await asyncio.wait_for(
+        service.retrieve(
+            scope=scope,
+            query="Atlas pnpm",
+            task_type=None,
+            token_budget=200,
+            limit=5,
+            graph_hops=1,
+        ),
+        timeout=2.0,
+    )
+    assert retrieval_id.startswith("retrieval_")
+
+
+async def test_retrieval_tolerates_channels_with_no_candidates() -> None:
+    rule = make_memory(
+        memory_id="mem_rule",
+        version_id="memv_rule",
+        key="lockfile_rule",
+        content="Never edit the lockfile manually.",
+        criticality=Criticality.MUST_INCLUDE,
+    )
+    store = MemoryStoreStub(memories=[rule])
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    # Lexical, structured, semantic, and graph all yield nothing for this query;
+    # only the critical channel produces a memory. Retrieval must still succeed.
+    _, critical, normal, context, used_tokens = await service.retrieve(
+        scope=scope,
+        query="totally unrelated weather question",
+        task_type=None,
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+
+    assert [memory.version.id for memory in critical] == ["memv_rule"]
+    assert normal == []
+    assert "lockfile" in context
+    assert used_tokens > 0
