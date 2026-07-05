@@ -46,6 +46,28 @@ class MemoryStore(Protocol):
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]: ...
 
+    async def list_critical_memories(
+        self,
+        *,
+        scope: Scope,
+        limit: int,
+    ) -> list[CanonicalMemory]: ...
+
+    async def search_structured(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[CanonicalMemory]: ...
+
+    async def get_memories_by_version_ids(
+        self,
+        *,
+        scope: Scope,
+        version_ids: list[str],
+    ) -> list[CanonicalMemory]: ...
+
     async def search_lexical(
         self,
         *,

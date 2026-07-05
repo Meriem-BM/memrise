@@ -1,9 +1,9 @@
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from memrise.core.enums import MemoryStatus
+from memrise.core.enums import Criticality, MemoryStatus
 from memrise.core.models import CanonicalMemory, Scope
-from memrise.core.text import normalize_lookup
+from memrise.core.text import normalize_lookup, search_terms
 from memrise.core.time import utc_now
 from memrise.integrations.postgres.schema.mappers import canonical_from_rows
 from memrise.integrations.postgres.schema.models import MemoryRow, MemoryVersionRow
@@ -213,6 +213,87 @@ def _live_scope_filters(scope: Scope) -> list:
         MemoryVersionRow.valid_from <= now,
         or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
     ]
+
+
+async def list_critical_memories_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    limit: int,
+) -> list[CanonicalMemory]:
+    rows = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow)
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                *_live_scope_filters(scope),
+                MemoryVersionRow.criticality == Criticality.MUST_INCLUDE.value,
+            )
+            .order_by(
+                (MemoryVersionRow.usefulness_score + MemoryVersionRow.confidence).desc(),
+                MemoryVersionRow.updated_at.desc(),
+            )
+            .limit(limit)
+        )
+    ).all()
+    return [canonical_from_rows(memory, version) for memory, version in rows]
+
+
+def _escape_like(term: str) -> str:
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+async def search_structured_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    query: str,
+    limit: int,
+) -> list[CanonicalMemory]:
+    """Bounded candidates whose normalized subject or key contains a query term.
+
+    Exact structured scoring stays in the read service; this only bounds the pool.
+    """
+    terms = [term for term in search_terms(query) if term]
+    if not terms:
+        return []
+    term_filters = []
+    for term in terms:
+        pattern = f"%{_escape_like(term)}%"
+        term_filters.append(MemoryRow.normalized_subject.like(pattern, escape="\\"))
+        term_filters.append(MemoryRow.normalized_key.like(pattern, escape="\\"))
+    rows = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow)
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(*_live_scope_filters(scope), or_(*term_filters))
+            .order_by(
+                (MemoryVersionRow.usefulness_score + MemoryVersionRow.confidence).desc(),
+                MemoryVersionRow.updated_at.desc(),
+            )
+            .limit(limit)
+        )
+    ).all()
+    return [canonical_from_rows(memory, version) for memory, version in rows]
+
+
+async def get_memories_by_version_ids_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    version_ids: list[str],
+) -> list[CanonicalMemory]:
+    """Scope-filtered hydration for graph hits: never returns versions outside the scope."""
+    if not version_ids:
+        return []
+    rows = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow)
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(*_live_scope_filters(scope), MemoryVersionRow.id.in_(version_ids))
+        )
+    ).all()
+    return [canonical_from_rows(memory, version) for memory, version in rows]
 
 
 async def search_lexical_in_session(

@@ -306,6 +306,58 @@ class MemoryStoreStub:
             memory if item.version.id == memory.version.id else item for item in self.memories
         ]
 
+    async def list_critical_memories(
+        self,
+        *,
+        scope: Scope,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        critical = [
+            memory
+            for memory in self._live_scope_memories(scope)
+            if memory.version.criticality == Criticality.MUST_INCLUDE
+        ]
+        critical.sort(
+            key=lambda memory: memory.version.usefulness_score + memory.version.confidence,
+            reverse=True,
+        )
+        return critical[:limit]
+
+    async def search_structured(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        query_terms = _search_terms(query)
+        if not query_terms:
+            return []
+        matches = [
+            memory
+            for memory in self._live_scope_memories(scope)
+            if any(
+                term in f"{memory.identity.subject} {memory.identity.key}".lower()
+                for term in query_terms
+            )
+        ]
+        matches.sort(
+            key=lambda memory: memory.version.usefulness_score + memory.version.confidence,
+            reverse=True,
+        )
+        return matches[:limit]
+
+    async def get_memories_by_version_ids(
+        self,
+        *,
+        scope: Scope,
+        version_ids: list[str],
+    ) -> list[CanonicalMemory]:
+        wanted = set(version_ids)
+        return [
+            memory for memory in self._live_scope_memories(scope) if memory.version.id in wanted
+        ]
+
     async def search_lexical(
         self,
         *,

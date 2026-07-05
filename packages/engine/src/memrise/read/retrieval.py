@@ -1,9 +1,11 @@
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.graph import GraphSearchRequest, clamp_graph_depth
 from memrise.core.models import CanonicalMemory, RetrievalItem, RetrievalTrace, Scope
+from memrise.core.text import search_terms
 from memrise.core.time import utc_now
 from memrise.graph.retrieval import GraphTraversalService, should_use_graph_retrieval
 from memrise.ports.graph_repository import GraphRepository
@@ -17,6 +19,8 @@ RRF_K = 60
 CONTESTED_RANK_PENALTY = 0.04
 # Per-channel candidate cap for the SQL-backed lexical and semantic searches.
 CHANNEL_LIMIT = 50
+# Bounded pool of must_include memories considered for the critical reservation.
+CRITICAL_CHANNEL_LIMIT = 20
 # Ranking boost for memories whose declared applicability matches the task.
 TASK_MATCH_BOOST = 0.05
 
@@ -37,15 +41,11 @@ def reciprocal_rank_fusion(candidates: list[RetrievalCandidate]) -> dict[str, fl
     return dict(scores)
 
 
-def _terms(text: str) -> set[str]:
-    return {part.strip(".,:;!?()[]{}\"'").lower() for part in text.split() if part.strip()}
-
-
 def _term_overlap(query: str, text: str) -> float:
-    query_terms = _terms(query)
+    query_terms = search_terms(query)
     if not query_terms:
         return 0.0
-    return len(query_terms & _terms(text)) / len(query_terms)
+    return len(query_terms & search_terms(text)) / len(query_terms)
 
 
 def lexical_score(query: str, memory: CanonicalMemory) -> float:
@@ -155,43 +155,54 @@ class RetrievalService:
         limit: int,
         graph_hops: int,
     ) -> tuple[str, list[CanonicalMemory], list[CanonicalMemory], str, int]:
-        memories = await self._store.list_active_memories(scope=scope, include_contested=True)
-        applicable = [
+        critical_pool = [
             memory
-            for memory in memories
+            for memory in await self._store.list_critical_memories(
+                scope=scope, limit=CRITICAL_CHANNEL_LIMIT
+            )
             if self._is_applicable(memory) and task_type_matches(memory, task_type) is not False
         ]
-        memory_by_version_id = {memory.version.id: memory for memory in applicable}
-        critical = self._select_critical(applicable, query, token_budget)
+        critical = self._select_critical(critical_pool, query, token_budget)
 
-        normal_pool = [
+        def admissible(memory: CanonicalMemory) -> bool:
+            return (
+                self._is_applicable(memory)
+                and task_type_matches(memory, task_type) is not False
+                and memory.version.criticality != Criticality.MUST_INCLUDE
+            )
+
+        structured_pool = [
             memory
-            for memory in applicable
-            if memory.version.criticality != Criticality.MUST_INCLUDE
+            for memory in await self._store.search_structured(
+                scope=scope, query=query, limit=CHANNEL_LIMIT
+            )
+            if admissible(memory) and structured_score(query, memory) > 0.0
         ]
-
         structured_scores = {
-            memory.version.id: structured_score(query, memory) for memory in normal_pool
+            memory.version.id: structured_score(query, memory) for memory in structured_pool
         }
         structured = _ranked_candidates(
-            normal_pool,
+            structured_pool,
             source_type=RetrievalSourceType.STRUCTURED,
             score_by_version_id=structured_scores,
         )
-        lexical = await self._lexical_candidates(
-            scope=scope, query=query, memory_by_version_id=memory_by_version_id
-        )
-        semantic = await self._semantic_candidates(
-            scope=scope, query=query, memory_by_version_id=memory_by_version_id
-        )
+        lexical = await self._lexical_candidates(scope=scope, query=query, admit=admissible)
+        semantic = await self._semantic_candidates(scope=scope, query=query, admit=admissible)
         lexical_scores = {c.memory.version.id: c.score for c in lexical}
         semantic_scores = {c.memory.version.id: c.score for c in semantic}
         graph = await self._graph_candidates(
             scope=scope,
             query=query,
             graph_hops=graph_hops,
-            memory_by_version_id=memory_by_version_id,
+            admit=admissible,
         )
+
+        # Bounded ranking pool: the deduped union of channel candidates. Retrieval
+        # never materializes the full active scope.
+        normal_pool_by_id: dict[str, CanonicalMemory] = {}
+        for candidate in [*structured, *lexical, *semantic, *graph]:
+            normal_pool_by_id.setdefault(candidate.memory.version.id, candidate.memory)
+        normal_pool = list(normal_pool_by_id.values())
 
         fused_scores = reciprocal_rank_fusion(lexical + structured + semantic + graph)
         ranked = sorted(
@@ -262,31 +273,23 @@ class RetrievalService:
         *,
         scope: Scope,
         query: str,
-        memory_by_version_id: dict[str, CanonicalMemory],
+        admit: Callable[[CanonicalMemory], bool],
     ) -> list[RetrievalCandidate]:
         hits = await self._store.search_lexical(scope=scope, query=query, limit=CHANNEL_LIMIT)
-        return _channel_candidates(
-            hits,
-            source_type=RetrievalSourceType.LEXICAL,
-            memory_by_version_id=memory_by_version_id,
-        )
+        return _channel_candidates(hits, source_type=RetrievalSourceType.LEXICAL, admit=admit)
 
     async def _semantic_candidates(
         self,
         *,
         scope: Scope,
         query: str,
-        memory_by_version_id: dict[str, CanonicalMemory],
+        admit: Callable[[CanonicalMemory], bool],
     ) -> list[RetrievalCandidate]:
         query_embedding = await self._embedding_provider.embed(query)
         hits = await self._store.search_semantic(
             scope=scope, embedding=query_embedding, limit=CHANNEL_LIMIT
         )
-        return _channel_candidates(
-            hits,
-            source_type=RetrievalSourceType.SEMANTIC,
-            memory_by_version_id=memory_by_version_id,
-        )
+        return _channel_candidates(hits, source_type=RetrievalSourceType.SEMANTIC, admit=admit)
 
     async def _graph_candidates(
         self,
@@ -294,7 +297,7 @@ class RetrievalService:
         scope: Scope,
         query: str,
         graph_hops: int,
-        memory_by_version_id: dict[str, CanonicalMemory],
+        admit: Callable[[CanonicalMemory], bool],
     ) -> list[RetrievalCandidate]:
         if not should_use_graph_retrieval(query):
             return []
@@ -316,6 +319,15 @@ class RetrievalService:
                     depth=depth,
                 )
             )
+        path_version_ids: list[str] = []
+        for path in paths:
+            for memory_version_id in path.source_memory_version_ids:
+                if memory_version_id not in path_version_ids:
+                    path_version_ids.append(memory_version_id)
+        hydrated = await self._store.get_memories_by_version_ids(
+            scope=scope, version_ids=path_version_ids
+        )
+        memory_by_version_id = {memory.version.id: memory for memory in hydrated if admit(memory)}
         candidates: list[RetrievalCandidate] = []
         seen_versions: set[str] = set()
         for index, path in enumerate(paths, start=1):
@@ -398,17 +410,14 @@ def _channel_candidates(
     hits: list[tuple[CanonicalMemory, float]],
     *,
     source_type: RetrievalSourceType,
-    memory_by_version_id: dict[str, CanonicalMemory],
+    admit: Callable[[CanonicalMemory], bool],
 ) -> list[RetrievalCandidate]:
     candidates: list[RetrievalCandidate] = []
     rank = 1
     for memory, score in hits:
-        pooled = memory_by_version_id.get(memory.version.id)
-        if pooled is None:
+        if not admit(memory):
             continue
-        if pooled.version.criticality == Criticality.MUST_INCLUDE:
-            continue
-        candidates.append(RetrievalCandidate(pooled, source_type, rank, score))
+        candidates.append(RetrievalCandidate(memory, source_type, rank, score))
         rank += 1
     return candidates
 

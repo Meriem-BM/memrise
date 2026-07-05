@@ -1,6 +1,6 @@
 import pytest
 
-from memrise.core.enums import MemoryStatus, RetrievalSourceType
+from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.models import Scope
 from memrise.ports.providers import EmbeddingVector
 from memrise.read.retrieval import (
@@ -225,3 +225,83 @@ async def test_task_type_applicability_filters_and_boosts() -> None:
     deploy_ids = [memory.version.id for memory in for_deploy]
     assert deploy_ids[0] == "memv_deploy"
     assert "memv_general" in deploy_ids
+
+
+async def test_retrieve_never_materializes_full_active_scope() -> None:
+    critical = make_memory(
+        memory_id="mem_rule",
+        version_id="memv_rule",
+        key="lockfile_rule",
+        content="Never edit the Atlas lockfile manually.",
+        criticality=Criticality.MUST_INCLUDE,
+    )
+    normal = make_memory(
+        memory_id="mem_pm",
+        version_id="memv_pm",
+        content="Atlas uses pnpm for dependencies.",
+    )
+    store = MemoryStoreStub(memories=[critical, normal])
+
+    async def forbidden(**_: object) -> list:
+        raise AssertionError("retrieve must not call list_active_memories")
+
+    store.list_active_memories = forbidden  # type: ignore[method-assign]
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    _, selected_critical, selected_normal, context, _ = await service.retrieve(
+        scope=scope,
+        query="Atlas pnpm lockfile",
+        task_type=None,
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+
+    assert [memory.version.id for memory in selected_critical] == ["memv_rule"]
+    assert [memory.version.id for memory in selected_normal] == ["memv_pm"]
+    assert "pnpm" in context
+    assert "lockfile" in context
+
+
+async def test_trace_only_persists_bounded_channel_candidates() -> None:
+    relevant = make_memory(
+        memory_id="mem_hit",
+        version_id="memv_hit",
+        content="Atlas uses pnpm for dependencies.",
+    )
+    unrelated = make_memory(
+        memory_id="mem_noise",
+        version_id="memv_noise",
+        subject="weather",
+        key="forecast",
+        content="It rains in Lisbon in November.",
+    )
+    store = MemoryStoreStub(memories=[relevant, unrelated])
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+    )
+    scope = Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas")
+
+    retrieval_id, _, _, _, _ = await service.retrieve(
+        scope=scope,
+        query="Atlas pnpm",
+        task_type=None,
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+
+    traced_ids = {item.memory_version_id for item in store.retrieval_items[retrieval_id]}
+    assert "memv_hit" in traced_ids
+    assert "memv_noise" not in traced_ids

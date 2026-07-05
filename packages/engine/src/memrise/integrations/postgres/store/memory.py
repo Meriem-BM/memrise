@@ -24,9 +24,12 @@ from memrise.integrations.postgres.store.queries import (
     find_latest_memory_in_session,
     find_matching_historical_memory_in_session,
     find_semantic_duplicate_in_session,
+    get_memories_by_version_ids_in_session,
+    list_critical_memories_in_session,
     lock_logical_memory_in_session,
     search_lexical_in_session,
     search_semantic_in_session,
+    search_structured_in_session,
 )
 from memrise.learning.apply import MemoryApplyService
 from memrise.learning.reconciliation import candidate_has_explicit_change, same_memory_value
@@ -153,6 +156,38 @@ class PostgresMemoryRepository:
                 loser.updated_at = now
                 resolved += 1
             return resolved
+
+    async def list_critical_memories(
+        self,
+        *,
+        scope: Scope,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        async with self._session_factory() as session:
+            return await list_critical_memories_in_session(session, scope=scope, limit=limit)
+
+    async def search_structured(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        async with self._session_factory() as session:
+            return await search_structured_in_session(
+                session, scope=scope, query=query, limit=limit
+            )
+
+    async def get_memories_by_version_ids(
+        self,
+        *,
+        scope: Scope,
+        version_ids: list[str],
+    ) -> list[CanonicalMemory]:
+        async with self._session_factory() as session:
+            return await get_memories_by_version_ids_in_session(
+                session, scope=scope, version_ids=version_ids
+            )
 
     async def search_lexical(
         self,

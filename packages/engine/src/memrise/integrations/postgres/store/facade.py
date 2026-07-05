@@ -89,6 +89,33 @@ class PostgresMemoryStore:
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:
         return await self._memories.list_memory_history(memory_id)
 
+    async def list_critical_memories(
+        self,
+        *,
+        scope: Scope,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        return await self._memories.list_critical_memories(scope=scope, limit=limit)
+
+    async def search_structured(
+        self,
+        *,
+        scope: Scope,
+        query: str,
+        limit: int,
+    ) -> list[CanonicalMemory]:
+        return await self._memories.search_structured(scope=scope, query=query, limit=limit)
+
+    async def get_memories_by_version_ids(
+        self,
+        *,
+        scope: Scope,
+        version_ids: list[str],
+    ) -> list[CanonicalMemory]:
+        return await self._memories.get_memories_by_version_ids(
+            scope=scope, version_ids=version_ids
+        )
+
     async def search_lexical(
         self,
         *,

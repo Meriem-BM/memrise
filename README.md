@@ -145,15 +145,35 @@ flowchart TB
 
 **Channels** (`read/retrieval.py`)
 
-- **Critical lookup**: surfaces `must_include` constraints regardless of query overlap.
-- **Structured match**: exact overlap on a memory's `subject`/`key` (great for identifiers).
-- **Lexical**: full-text term overlap; exact recall for names, flags, versions.
-- **Semantic**: cosine similarity over `text-embedding-v4` vectors in pgvector (per-channel cap of 50).
-- **Graph**: Apache AGE traversal, only invoked when the query looks relational and the graph store is available; depth is clamped.
+| Channel               | Technology                                                                                             | Retrieval role                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Critical lookup**   | Engine-side scan of active `must_include` memories                                                     | Reserves space for non-negotiable constraints even when query overlap is weak.                                                             |
+| **Structured match**  | Engine-side overlap on canonical `subject` and `key`                                                   | Finds identifier-like memories before looser text matching.                                                                                |
+| **Lexical / keyword** | PostgreSQL full-text search: generated `tsvector`, `websearch_to_tsquery`, `ts_rank`, GIN index        | Finds exact words and phrases such as names, flags, versions, and package names.                                                           |
+| **Semantic**          | Qwen `text-embedding-v4` embeddings, 1024 dimensions, stored in pgvector with HNSW `vector_cosine_ops` | Finds memories with similar meaning; retrieval orders by cosine distance and converts distance into similarity.                            |
+| **Graph**             | Apache AGE inside PostgreSQL, projected from accepted graph claims                                     | Finds related facts through entity/relation traversal; runs only when graph retrieval is useful and available, with clamped 1-2 hop paths. |
 
-**Reciprocal Rank Fusion** (`RRF_K = 60`) combines the ranked channel outputs without needing to normalize incomparable score scales.
+The channels are intentionally different: keyword finds the same words, semantic finds similar meaning, and graph finds related facts connected through entities and relations.
 
-**Utility-aware ranking** adds signals on top of the fused score: `usefulness × 0.12`, `confidence × 0.08`, scope specificity (user/project-scoped memories rank higher), a `+0.05` task-type-match boost, and a `−0.04` penalty for contested memories.
+**Reciprocal Rank Fusion** (`RRF_K = 60`) combines the ranked channel outputs without needing to normalize incomparable score scales. Memrise does not average raw lexical, semantic, and graph scores directly; each channel contributes by rank:
+
+```text
+rrf_score(memory) = sum(1 / (60 + channel_rank))
+```
+
+**Utility-aware ranking** then adds memory-quality signals on top of the fused retrieval score:
+
+```text
+final_score =
+  rrf_score
+  + usefulness_score * 0.12
+  + confidence * 0.08
+  + scope_specificity
+  + task_match_boost
+  - contested_penalty
+```
+
+`scope_specificity` gives user-scoped memories `+0.05` and project-scoped memories `+0.08`; `task_match_boost` is `+0.05`; `contested_penalty` is `−0.04`. Outcome feedback changes usefulness only, so helpful memories rise in future ranking without rewriting their factual content.
 
 **Critical reservation + packing** is the answer to "recall critical memories within a limited context window." Before normal results are packed, `_select_critical` reserves **20% of the token budget** (`token_budget × 0.2`) for up to **3** `must_include` memories, ranked by query relevance. The greedy packer then emits **critical first**, then ranked normal memories, stopping at the budget. So even at a tiny budget, the non-negotiable constraints make it into context.
 
