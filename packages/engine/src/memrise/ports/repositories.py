@@ -84,6 +84,14 @@ class MemoryStore(Protocol):
         limit: int,
     ) -> list[tuple[CanonicalMemory, float]]: ...
 
+    async def supersede_memories_as_duplicates(
+        self,
+        *,
+        survivor_version_id: str,
+        duplicate_version_ids: list[str],
+        now: datetime,
+    ) -> int: ...
+
     async def find_current_memory(
         self,
         *,

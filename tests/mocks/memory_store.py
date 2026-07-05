@@ -306,6 +306,32 @@ class MemoryStoreStub:
             memory if item.version.id == memory.version.id else item for item in self.memories
         ]
 
+    async def supersede_memories_as_duplicates(
+        self,
+        *,
+        survivor_version_id: str,
+        duplicate_version_ids: list[str],
+        now: datetime,
+    ) -> int:
+        wanted = set(duplicate_version_ids) - {survivor_version_id}
+        superseded = 0
+        for memory in list(self.memories):
+            version = memory.version
+            if version.id in wanted and version.status in (
+                MemoryStatus.ACTIVE,
+                MemoryStatus.CONTESTED,
+            ):
+                self._replace_version(
+                    _with_version(
+                        memory,
+                        status=MemoryStatus.SUPERSEDED,
+                        valid_until=now,
+                        superseded_by_version_id=survivor_version_id,
+                    )
+                )
+                superseded += 1
+        return superseded
+
     async def list_critical_memories(
         self,
         *,

@@ -116,6 +116,19 @@ class PostgresMemoryStore:
             scope=scope, version_ids=version_ids
         )
 
+    async def supersede_memories_as_duplicates(
+        self,
+        *,
+        survivor_version_id: str,
+        duplicate_version_ids: list[str],
+        now: datetime,
+    ) -> int:
+        return await self._memories.supersede_memories_as_duplicates(
+            survivor_version_id=survivor_version_id,
+            duplicate_version_ids=duplicate_version_ids,
+            now=now,
+        )
+
     async def search_lexical(
         self,
         *,

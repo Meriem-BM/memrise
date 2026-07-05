@@ -189,6 +189,40 @@ class PostgresMemoryRepository:
                 session, scope=scope, version_ids=version_ids
             )
 
+    async def supersede_memories_as_duplicates(
+        self,
+        *,
+        survivor_version_id: str,
+        duplicate_version_ids: list[str],
+        now: datetime,
+    ) -> int:
+        """Merge near-duplicate memories into a survivor by superseding them.
+
+        Duplicates become SUPERSEDED with superseded_by pointing at the survivor,
+        so they drop out of live retrieval while remaining fully auditable. Nothing
+        is physically deleted, and the survivor is left untouched.
+        """
+        if not duplicate_version_ids:
+            return 0
+        async with session_scope(self._session_factory) as session:
+            result = await session.execute(
+                update(MemoryVersionRow)
+                .where(
+                    MemoryVersionRow.id.in_(duplicate_version_ids),
+                    MemoryVersionRow.id != survivor_version_id,
+                    MemoryVersionRow.status.in_(
+                        [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                    ),
+                )
+                .values(
+                    status=MemoryStatus.SUPERSEDED.value,
+                    valid_until=now,
+                    superseded_by_version_id=survivor_version_id,
+                    updated_at=now,
+                )
+            )
+            return int(getattr(result, "rowcount", 0) or 0)
+
     async def search_lexical(
         self,
         *,

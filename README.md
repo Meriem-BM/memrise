@@ -353,7 +353,7 @@ Pre-commit hooks run staged-file-aware Ruff, Prettier, ESLint/typecheck, and Pyr
 
 ## Current limitations
 
-- Consolidation replays session extraction today; fuller merge/compress/resolve steps are planned, not yet wired.
+- Consolidation replays session extraction and runs a semantic near-duplicate merge that supersedes weaker restatements into the strongest survivor (history is preserved, never deleted). Contradiction cleanup still relies on reconciliation and the contested lifecycle; LLM-driven compression into higher-order lessons is not yet wired.
 - Capture, remember, retrieve, and respond require a configured Qwen API key, there is no in-app model fallback.
 - Qwen prompts are initial versions and need eval-driven refinement.
 - Authorization is a simple API key, intentionally not production-grade multi-tenant auth.

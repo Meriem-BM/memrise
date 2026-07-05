@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from memrise.consolidation.duplicates import find_duplicate_clusters
+from memrise.core.models import Scope
 from memrise.ports.providers import (
     CompletionProvider,
     EmbeddingProvider,
@@ -102,6 +104,29 @@ class SessionConsolidationService:
                     memory=outcome.memory,
                     relations=candidate.graph_relations,
                 )
+
+        await self.merge_duplicates(scope=scope, now=now)
+
+    async def merge_duplicates(self, *, scope: Scope, now: datetime) -> int:
+        """Collapse near-duplicate active memories into one survivor each.
+
+        Reconciliation only compares a candidate against the single memory sharing
+        its subject/key, so restatements under different subjects/keys accumulate as
+        separate memories (e.g. three phrasings of the same lockfile rule). This
+        semantic pass groups same-scope active memories by embedding similarity and
+        supersedes the weaker members into the strongest. Returns how many memories
+        were superseded.
+        """
+        memories = await self._store.list_active_memories(scope=scope)
+        clusters = find_duplicate_clusters(memories)
+        superseded = 0
+        for cluster in clusters:
+            superseded += await self._store.supersede_memories_as_duplicates(
+                survivor_version_id=cluster.survivor.version.id,
+                duplicate_version_ids=[duplicate.version.id for duplicate in cluster.duplicates],
+                now=now,
+            )
+        return superseded
 
 
 def _reject_candidate(candidate: ExtractedMemoryCandidate, *, session_text: str) -> bool:
