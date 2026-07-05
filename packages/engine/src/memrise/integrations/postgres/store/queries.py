@@ -201,6 +201,67 @@ async def find_semantic_duplicate_in_session(
     return canonical_from_rows(row[0], row[1])
 
 
+async def find_cross_subject_duplicate_in_session(
+    session: AsyncSession,
+    *,
+    scope: Scope,
+    subject: str,
+    key: str,
+    embedding: EmbeddingVector,
+    threshold: float,
+) -> CanonicalMemory | None:
+    """Find the nearest live memory in scope under a *different* subject/key.
+
+    Write-time duplicate prevention: reconciliation only compares a candidate to
+    the one memory sharing its subject/key, so restatements phrased under a new
+    subject (three wordings of one lockfile rule) would each be added. This
+    scope-wide nearest-neighbor (HNSW index, one row) surfaces such a match so the
+    apply pipeline reinforces the existing memory instead of creating a duplicate.
+    The threshold is high, so distinct or contradictory facts are not matched.
+    """
+    if not embedding.values:
+        return None
+    now = utc_now()
+    distance = MemoryVersionRow.embedding.cosine_distance(embedding.values)
+    row = (
+        await session.execute(
+            select(MemoryRow, MemoryVersionRow)
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                MemoryRow.namespace_id == scope.namespace_id,
+                MemoryRow.agent_id == scope.agent_id,
+                MemoryRow.user_id.is_(scope.user_id)
+                if scope.user_id is None
+                else MemoryRow.user_id == scope.user_id,
+                MemoryRow.project_id.is_(scope.project_id)
+                if scope.project_id is None
+                else MemoryRow.project_id == scope.project_id,
+                # Exclude the exact same logical identity (handled by find_current_memory).
+                or_(
+                    MemoryRow.normalized_subject != normalize_lookup(subject),
+                    MemoryRow.normalized_key != normalize_lookup(key),
+                ),
+                MemoryVersionRow.status.in_(
+                    [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                ),
+                MemoryVersionRow.valid_from <= now,
+                or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
+                MemoryVersionRow.embedding.is_not(None),
+                or_(
+                    MemoryVersionRow.embedding_model.is_(None),
+                    MemoryVersionRow.embedding_model == embedding.model,
+                ),
+                distance <= 1.0 - threshold,
+            )
+            .order_by(distance)
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+    return canonical_from_rows(row[0], row[1])
+
+
 def _live_scope_filters(scope: Scope) -> list:
     """Filters shared by retrieval channels: live versions visible to the scope."""
     now = utc_now()

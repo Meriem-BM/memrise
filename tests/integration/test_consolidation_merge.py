@@ -35,20 +35,24 @@ async def test_supersede_merges_duplicates_and_preserves_history() -> None:
         user_id="user-1",
         project_id="atlas",
     )
-    # Near-identical embeddings; different subject/key so reconciliation never merged them.
-    vector = EmbeddingVector(values=[0.2] * 1024, model="mock-embedding", dimensions=1024)
+    # Dissimilar embeddings so write-time prevention does not merge them here: this
+    # test exercises the SQL supersession directly with explicit version ids.
+    vector_a = EmbeddingVector(values=[0.2] * 1024, model="mock-embedding", dimensions=1024)
+    vector_b = EmbeddingVector(
+        values=[0.2] * 512 + [-0.2] * 512, model="mock-embedding", dimensions=1024
+    )
 
     survivor = await store.apply_candidate(
         scope=scope,
         candidate=_candidate("lockfile", "rule", "Never manually edit the generated lockfile."),
         source_episode_ids=[],
-        embedding=vector,
+        embedding=vector_a,
     )
     duplicate = await store.apply_candidate(
         scope=scope,
         candidate=_candidate("pnpm_lockfile", "edit", "Never manually edit the pnpm lockfile."),
         source_episode_ids=[],
-        embedding=vector,
+        embedding=vector_b,
     )
     assert survivor.memory is not None
     assert duplicate.memory is not None
@@ -73,3 +77,36 @@ async def test_supersede_merges_duplicates_and_preserves_history() -> None:
     assert superseded_memory is not None
     assert superseded_memory.version.status == MemoryStatus.SUPERSEDED
     assert superseded_memory.version.superseded_by_version_id == survivor_version_id
+
+
+async def test_write_time_prevention_reinforces_instead_of_duplicating() -> None:
+    store = PostgresMemoryStore(make_session_factory(database_url()), id_generator=UuidGenerator())
+    scope = Scope(
+        namespace_id=f"it-prevent-{uuid4().hex}",
+        agent_id="coding-agent",
+        user_id="user-1",
+        project_id="atlas",
+    )
+    vector = EmbeddingVector(values=[0.3] * 1024, model="mock-embedding", dimensions=1024)
+
+    first = await store.apply_candidate(
+        scope=scope,
+        candidate=_candidate("lockfile", "rule", "Never manually edit the generated lockfile."),
+        source_episode_ids=[],
+        embedding=vector,
+    )
+    # Same meaning, different subject/key: reconciliation alone would add a 2nd memory.
+    second = await store.apply_candidate(
+        scope=scope,
+        candidate=_candidate("pnpm_lockfile", "edit", "Never manually edit the pnpm lockfile."),
+        source_episode_ids=[],
+        embedding=vector,
+    )
+
+    assert first.memory is not None
+    # No duplicate is created; the write reinforces the existing memory.
+    active = await store.list_active_memories(scope=scope)
+    assert len(active) == 1
+    assert active[0].identity.id == first.memory.identity.id
+    assert second.memory is not None
+    assert second.memory.identity.id == first.memory.identity.id

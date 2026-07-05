@@ -2,12 +2,14 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 
+from memrise.consolidation.duplicates import MERGE_SIMILARITY_THRESHOLD
 from memrise.core.embeddings import cosine_similarity
 from memrise.core.enums import (
     CandidateStageStatus,
     Criticality,
     JobStatus,
     JobType,
+    MemoryOperation,
     MemoryStatus,
     MemoryType,
 )
@@ -58,6 +60,12 @@ def _with_version(memory: CanonicalMemory, **changes: object) -> CanonicalMemory
 
 def _search_terms(text: str) -> set[str]:
     return {part.strip(".,:;!?()[]{}\"'").lower() for part in text.split() if part.strip()}
+
+
+def _eligible_for_cross_subject_dedup(candidate: ExtractedMemoryCandidate) -> bool:
+    if candidate.operation_hint in (MemoryOperation.SUPERSEDE, MemoryOperation.CONTEST):
+        return False
+    return not candidate_has_explicit_change(candidate)
 
 
 def make_memory(
@@ -498,6 +506,46 @@ class MemoryStoreStub:
                 best_similarity = similarity
         return best
 
+    def _find_cross_subject_duplicate(
+        self,
+        *,
+        scope: Scope,
+        candidate: ExtractedMemoryCandidate,
+        embedding: EmbeddingVector,
+    ) -> CanonicalMemory | None:
+        if not embedding.values:
+            return None
+        candidate_subject = normalize_lookup(candidate.subject)
+        candidate_key = normalize_lookup(candidate.key)
+        best: CanonicalMemory | None = None
+        best_similarity = MERGE_SIMILARITY_THRESHOLD
+        for memory in self.memories:
+            identity = memory.identity
+            version = memory.version
+            if (
+                identity.namespace_id != scope.namespace_id
+                or identity.agent_id != scope.agent_id
+                or identity.user_id != scope.user_id
+                or identity.project_id != scope.project_id
+            ):
+                continue
+            if (
+                normalize_lookup(identity.subject) == candidate_subject
+                and normalize_lookup(identity.key) == candidate_key
+            ):
+                continue
+            if version.status not in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED):
+                continue
+            if version.embedding is None:
+                continue
+            if version.embedding_model is not None and version.embedding_model != embedding.model:
+                continue
+            similarity = cosine_similarity(embedding.values, version.embedding)
+            if similarity >= best_similarity:
+                best = memory
+                best_similarity = similarity
+        return best
+
     async def _find_latest_memory(
         self,
         *,
@@ -570,6 +618,12 @@ class MemoryStoreStub:
                 return ApplyCandidateOutcome(skip_reason="reconcile:historical_duplicate")
         if existing is None:
             existing = self._find_semantic_duplicate(
+                scope=scope,
+                candidate=candidate,
+                embedding=embedding,
+            )
+        if existing is None and _eligible_for_cross_subject_dedup(candidate):
+            existing = self._find_cross_subject_duplicate(
                 scope=scope,
                 candidate=candidate,
                 embedding=embedding,

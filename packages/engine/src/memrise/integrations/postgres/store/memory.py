@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import extract, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from memrise.core.enums import MemoryStatus
+from memrise.consolidation.duplicates import MERGE_SIMILARITY_THRESHOLD
+from memrise.core.enums import MemoryOperation, MemoryStatus
 from memrise.core.models import (
     ApplyCandidateOutcome,
     CanonicalMemory,
@@ -20,6 +21,7 @@ from memrise.integrations.postgres.schema.models import (
 )
 from memrise.integrations.postgres.session import session_scope
 from memrise.integrations.postgres.store.queries import (
+    find_cross_subject_duplicate_in_session,
     find_current_memory_in_session,
     find_latest_memory_in_session,
     find_matching_historical_memory_in_session,
@@ -346,6 +348,15 @@ class PostgresMemoryRepository:
                     exclude_key=candidate.key,
                     embedding=embedding,
                 )
+            if existing is None and _eligible_for_cross_subject_dedup(candidate):
+                existing = await find_cross_subject_duplicate_in_session(
+                    session,
+                    scope=scope,
+                    subject=candidate.subject,
+                    key=candidate.key,
+                    embedding=embedding,
+                    threshold=MERGE_SIMILARITY_THRESHOLD,
+                )
             if existing is None:
                 existing = await find_latest_memory_in_session(
                     session,
@@ -388,12 +399,20 @@ class PostgresMemoryRepository:
                             relation="reinforced_by",
                         )
                     )
-                memory = await find_current_memory_in_session(
-                    session,
-                    scope=scope,
-                    subject=candidate.subject,
-                    key=candidate.key,
-                    include_contested=True,
+                # Reload by the reinforced memory's own identity, which may differ
+                # from the candidate's subject/key when a cross-subject duplicate was
+                # matched.
+                reinforced = existing if existing is not None else None
+                memory = (
+                    await find_current_memory_in_session(
+                        session,
+                        scope=scope,
+                        subject=reinforced.identity.subject,
+                        key=reinforced.identity.key,
+                        include_contested=True,
+                    )
+                    if reinforced is not None
+                    else None
                 )
                 return ApplyCandidateOutcome(memory=memory)
 
@@ -476,3 +495,15 @@ class PostgresMemoryRepository:
                 )
             await session.flush()
             return ApplyCandidateOutcome(memory=canonical_from_rows(memory_row, version_row))
+
+
+def _eligible_for_cross_subject_dedup(candidate: ExtractedMemoryCandidate) -> bool:
+    """Only plain restatements dedupe across subjects.
+
+    Corrections and provider-flagged conflicts carry real intent to change or
+    contest a fact, so they must land on their own subject/key and follow normal
+    reconciliation rather than being merged into a similar-looking neighbour.
+    """
+    if candidate.operation_hint in (MemoryOperation.SUPERSEDE, MemoryOperation.CONTEST):
+        return False
+    return not candidate_has_explicit_change(candidate)
