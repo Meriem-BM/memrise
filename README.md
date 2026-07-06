@@ -30,11 +30,11 @@ It stores experience as **immutable episodes**, consolidates durable knowledge i
 
 ## The problem this solves
 
-The hackathon brief asks for an agent that "autonomously accumulates experience, remembers user preferences, and makes increasingly accurate decisions across multi-turn, cross-session interactions," with a focus on **efficient storage and retrieval**, **timely forgetting of outdated information**, and **recalling critical memories within limited context windows**.
+An agent needs to "autonomously accumulate experience, remember user preferences, and make increasingly accurate decisions across multi-turn, cross-session interactions" — which comes down to **efficient storage and retrieval**, **timely forgetting of outdated information**, and **recalling critical memories within limited context windows**.
 
 Memrise maps each of those to a concrete mechanism:
 
-| Hackathon focus                            | How Memrise implements it                                                                                                                                                                                                                                                  |
+| Focus                                      | How Memrise implements it                                                                                                                                                                                                                                                  |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Efficient storage & retrieval**          | Immutable episodes vs. versioned canonical memories; three retrieval channels (exact-lexical FTS, semantic pgvector, temporal graph) fused with Reciprocal Rank Fusion; per-channel candidate caps so cost is bounded.                                                     |
 | **Timely forgetting**                      | A background lifecycle job that expires memories past their validity interval, **decays usefulness on a 30-day half-life toward neutral**, resolves contested pairs, and supersedes facts through temporal reconciliation, history is preserved, never physically deleted. |
