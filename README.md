@@ -17,6 +17,7 @@ It stores experience as **immutable episodes**, consolidates durable knowledge i
 - [The read path: recall under a context budget](#the-read-path-recall-under-a-context-budget)
 - [Forgetting: keeping memory sharp over time](#forgetting-keeping-memory-sharp-over-time)
 - [Outcome learning](#outcome-learning)
+- [Deduplication and consolidation](#deduplication-and-consolidation)
 - [Memory lifecycle](#memory-lifecycle)
 - [Data model](#data-model)
 - [API & SDK surface](#api--sdk-surface)
@@ -43,7 +44,7 @@ Memrise maps each of those to a concrete mechanism:
 
 ## System architecture
 
-Agents talk to Memrise only through the **HTTP API** and the **TypeScript SDK**, never to PostgreSQL directly. The Python engine owns all memory logic; the worker runs background jobs; PostgreSQL (with pgvector + Apache AGE) is the source of truth; Qwen models provide extraction, consolidation, answering, and embeddings.
+Agents talk to Memrise only through the **HTTP API** and the **TypeScript SDK**, never to PostgreSQL directly. The Python engine owns all memory logic; the worker runs background jobs; PostgreSQL (with pgvector + Apache AGE) is the source of truth; Qwen models provide extraction, consolidation, answering, duplicate judging, and embeddings.
 
 The diagram below is the target memory lifecycle; agents reach it through the Memory Gateway (the HTTP API + SDK).
 
@@ -55,12 +56,13 @@ The diagram below is the target memory lifecycle; agents reach it through the Me
 
 All model access goes through the **Qwen adapter** (`packages/engine/src/memrise/integrations/qwen`), which speaks to **Alibaba Cloud DashScope** over its OpenAI-compatible endpoint. There is intentionally **no in-app model fallback**, capture, remember, retrieve, and respond require a configured API key.
 
-| Purpose                                | Default model       | Config (env)           | Notes                                                                                                                          |
-| -------------------------------------- | ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **Memory extraction & classification** | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | Reads episode text, proposes candidate memories with type + criticality, emits validated JSON (`memory_extraction_v1` prompt). |
-| **Session consolidation**              | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | Replays a session's episodes to consolidate durable knowledge (`consolidation_v1` prompt).                                     |
-| **Agent answer generation**            | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | `POST /v1/agent/respond`: answers a query grounded in retrieved memories (`agent_answer_v1` prompt).                           |
-| **Embeddings**                         | `text-embedding-v4` | `QWEN_EMBEDDING_MODEL` | **1024 dimensions** (`QWEN_EMBEDDING_DIMENSIONS`), stored in a pgvector column and used for the semantic retrieval channel.    |
+| Purpose                                | Default model       | Config (env)           | Notes                                                                                                                                                                                  |
+| -------------------------------------- | ------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Memory extraction & classification** | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | Reads episode text, proposes candidate memories with type + criticality, emits validated JSON (`memory_extraction_v1` prompt).                                                         |
+| **Session consolidation**              | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | Replays a session's episodes to consolidate durable knowledge (`consolidation_v1` prompt).                                                                                             |
+| **Agent answer generation**            | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | `POST /v1/agent/respond`: answers a query grounded in retrieved memories (`agent_answer_v1` prompt).                                                                                   |
+| **Duplicate equivalence judge**        | `qwen3.6-flash`     | `QWEN_MEMORY_MODEL`    | Decides whether two ambiguous memories state the same thing when embeddings can't (`duplicate_judge_v1` prompt).                                                                       |
+| **Embeddings**                         | `text-embedding-v4` | `QWEN_EMBEDDING_MODEL` | **1024 dimensions** (`QWEN_EMBEDDING_DIMENSIONS`), stored in a pgvector column and used for the semantic retrieval channel. Batched on the write path and cached for repeated queries. |
 
 Connection is configured with `ALIBABA_CLOUD_API_KEY` and `ALIBABA_CLOUD_BASE_URL`; calls use a 30s timeout (`QWEN_TIMEOUT_SECONDS`) and up to 2 retries (`QWEN_MAX_RETRIES`). Every stored memory version records the `embedding_model` and the extraction `model_name` / `prompt_version` for provenance.
 
@@ -95,16 +97,18 @@ sequenceDiagram
     W->>Q: extract_memories(text, context)
     Q-->>W: candidates + classification (type, criticality)
     W->>W: deterministic guardrails (extraction_validation)
+    W->>Q: embed_many(all candidates)  %% one batched round trip, 1024-d
     loop each candidate
-      W->>R: decide(candidate vs. existing active memory)
+      W->>R: decide(candidate vs. existing / semantic neighbor)
       R-->>W: ADD · REINFORCE · SUPERSEDE · CONTEST · NOOP
-      W->>Q: embed(candidate)  %% text-embedding-v4, 1024-d
       W->>DB: write canonical memory version + search doc + embedding
       W->>DB: write graph claims (claims-first)
       W->>AGE: project accepted relations into temporal graph
     end
   end
 ```
+
+Candidate embeddings are computed in a single batched provider call (`embed_many`), not one request per candidate, so extraction jobs drain faster.
 
 **Importance gate** (`write/importance.py`): a recall-oriented pre-filter, not the precision layer. It only skips content that cannot hold durable knowledge (empty text, one- or two-word acknowledgements), while rescue markers like `always`, `never`, `must`, `use`, `prefer`, `decision`, `constraint` keep short imperatives ("use pnpm") in play. Everything else is handed to the LLM classifier to accept or reject.
 
@@ -116,13 +120,17 @@ sequenceDiagram
 - **CONTEST**: a conflicting value arrives; both sides stay retrievable, ranked below settled facts, until resolved.
 - **NOOP**: provider marked the candidate as noise.
 
+Reconciliation is keyed on a memory's `subject`/`key`, so it would miss a restatement phrased under a different subject. To prevent that, the write path also runs a **scope-wide semantic nearest-neighbor check**: if a plain candidate is near-identical (by cosine) to an existing memory under a different subject/key, it reinforces that memory instead of creating a duplicate. Corrections and provider-flagged conflicts are exempt so they keep their own identity.
+
 **Claims-first graph writes**: accepted relations are persisted in PostgreSQL (`graph_entities`, `graph_claims`) and then projected into the Apache AGE temporal graph. Graph edges are always projections of accepted memory versions, never written from raw episodes.
 
 ---
 
 ## The read path: recall under a context budget
 
-`retrieve` takes a query, a **token budget**, an optional `task_type`, and a `limit`. It filters by scope and lifecycle, gathers candidates from up to five channels, fuses them, ranks by utility, **reserves budget for critical memories**, and packs the final context, writing a full retrieval trace for every decision.
+`retrieve` takes a query, a **token budget**, an optional `task_type`, and a `limit`. It gathers **bounded** candidate sets from up to five channels, fuses them, ranks by utility, **reserves budget for critical memories**, and packs the final context, writing a full retrieval trace for every decision.
+
+Two properties keep it fast under load. **Candidate generation is bounded and SQL-side**: each channel returns a capped result set (lexical/semantic/structured top ~50, critical top ~20, graph by traversed paths), so Python only ever ranks a few hundred candidates regardless of how many memories the scope holds, no full-scope scan. The independent channels run **concurrently** (`asyncio.gather`, each on its own database session), and the query embedding is served from a **bounded LRU cache** so repeated or near-identical queries skip a provider round trip.
 
 ```mermaid
 flowchart TB
@@ -147,8 +155,8 @@ flowchart TB
 
 | Channel               | Technology                                                                                             | Retrieval role                                                                                                                             |
 | --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Critical lookup**   | Engine-side scan of active `must_include` memories                                                     | Reserves space for non-negotiable constraints even when query overlap is weak.                                                             |
-| **Structured match**  | Engine-side overlap on canonical `subject` and `key`                                                   | Finds identifier-like memories before looser text matching.                                                                                |
+| **Critical lookup**   | Bounded SQL query over active `must_include` memories                                                  | Reserves space for non-negotiable constraints even when query overlap is weak.                                                             |
+| **Structured match**  | Bounded SQL `LIKE` over normalized `subject` and `key`                                                 | Finds identifier-like memories before looser text matching.                                                                                |
 | **Lexical / keyword** | PostgreSQL full-text search: generated `tsvector`, `websearch_to_tsquery`, `ts_rank`, GIN index        | Finds exact words and phrases such as names, flags, versions, and package names.                                                           |
 | **Semantic**          | Qwen `text-embedding-v4` embeddings, 1024 dimensions, stored in pgvector with HNSW `vector_cosine_ops` | Finds memories with similar meaning; retrieval orders by cosine distance and converts distance into similarity.                            |
 | **Graph**             | Apache AGE inside PostgreSQL, projected from accepted graph claims                                     | Finds related facts through entity/relation traversal; runs only when graph retrieval is useful and available, with clamped 1-2 hop paths. |
@@ -207,6 +215,18 @@ The result: outdated facts stop winning retrieval **without** losing the audit t
 ## Outcome learning
 
 After using retrieved context, an agent reports an outcome via `feedback`: **helpful**, **unused**, or **harmful**. This adjusts the **usefulness score only** on the memories (and graph edges) involved. It **never** changes factual content, truth confidence, lifecycle status, or validity intervals. Over many sessions, memories that repeatedly help rise; those that mislead sink and can be archived, which is how decisions get "increasingly accurate" without corrupting stored truth.
+
+---
+
+## Deduplication and consolidation
+
+The same fact often arrives phrased many ways across turns and sessions ("Atlas switched to pnpm", "Atlas migrated its package manager to pnpm"). Reconciliation catches restatements under the same `subject`/`key`; everything else is handled by a layered dedup system so recall stays clean without ever losing information.
+
+1. **Write-time prevention** (synchronous): a scope-wide embedding nearest-neighbor at write time reinforces an existing memory instead of storing a near-identical restatement (see the write path).
+2. **Embedding merge** (periodic `DEDUPE_MEMORIES` job): clusters same-scope active memories by cosine similarity (single-linkage, so a chain of paraphrases collapses together) and supersedes the weaker members into the strongest survivor.
+3. **LLM equivalence judge** (same job): text-embedding-v4 compresses paraphrases, so genuinely equivalent memories can score _lower_ than distinct same-topic facts and no threshold separates them. Pairs in an ambiguous similarity band are handed to an LLM judge (`duplicate_judge_v1`) that decides equivalence from the text itself; confirmed pairs merge. The judge is precision-first ("when unsure, keep both") and bounded to a capped number of pairs per scope per run to stay cheap.
+
+Every merge **supersedes**, never deletes: the weaker memory becomes `superseded` history pointing at its survivor. Contradictions are never merged; they stay separate for the contested lifecycle. Session `consolidate` also replays extraction and asks the model for cross-episode synthesis; deeper compression of episode clusters into higher-order lessons is not yet wired.
 
 ---
 
@@ -353,7 +373,7 @@ Pre-commit hooks run staged-file-aware Ruff, Prettier, ESLint/typecheck, and Pyr
 
 ## Current limitations
 
-- Duplicate memories are handled two ways: write-time prevention (a scope-wide nearest-neighbor check reinforces an existing memory instead of adding a near-identical restatement) and a periodic `DEDUPE_MEMORIES` sweep that merges any that slip through, per scope. Merges supersede weaker restatements into the strongest survivor; history is preserved, never deleted. Contradiction cleanup still relies on reconciliation and the contested lifecycle; LLM-driven compression into higher-order lessons is not yet wired.
+- Deduplication (see [above](#deduplication-and-consolidation)) merges near-duplicate memories but does not yet compress clusters of related episodes into higher-order lessons; contradiction handling stays with reconciliation and the contested lifecycle.
 - Capture, remember, retrieve, and respond require a configured Qwen API key, there is no in-app model fallback.
 - Qwen prompts are initial versions and need eval-driven refinement.
 - Authorization is a simple API key, intentionally not production-grade multi-tenant auth.
