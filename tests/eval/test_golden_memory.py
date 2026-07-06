@@ -20,6 +20,7 @@ from memrise.learning.policy import DefaultFeedbackPolicy
 from memrise.ports.providers import (
     AnswerResult,
     ConsolidationResult,
+    DuplicateJudgementResult,
     EpisodeDurability,
     ExtractionResult,
     Sensitivity,
@@ -59,6 +60,14 @@ class ScriptedCompletionProvider:
     async def extract_memories(self, *, text: str, context: dict[str, object]) -> ExtractionResult:
         del context
         return self.results_by_text[text]
+
+    async def judge_duplicate_pairs(
+        self, *, pairs: list[dict[str, object]], context: dict[str, object]
+    ) -> DuplicateJudgementResult:
+        del pairs, context
+        return DuplicateJudgementResult(
+            verdicts=[], model_name="golden", prompt_version="duplicate_judge_v1"
+        )
 
     async def consolidate_memories(
         self,

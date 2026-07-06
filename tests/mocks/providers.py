@@ -4,6 +4,8 @@ from memrise.ports.providers import (
     AnswerResult,
     CompletionProvider,
     ConsolidationResult,
+    DuplicateJudgementResult,
+    DuplicateVerdict,
     EmbeddingProvider,
     EmbeddingVector,
     EpisodeClassification,
@@ -37,10 +39,29 @@ class MockCompletionProvider(CompletionProvider):
     captured: list[tuple[str, dict[str, object]]] = field(default_factory=list)
     consolidation_calls: list[dict[str, object]] = field(default_factory=list)
     answer_calls: list[dict[str, object]] = field(default_factory=list)
+    judge_calls: list[list[dict[str, object]]] = field(default_factory=list)
+    # Pair (left_id, right_id) tuples the judge should report as equivalent.
+    equivalent_pairs: set[tuple[str, str]] = field(default_factory=set)
 
     async def extract_memories(self, *, text: str, context: dict[str, object]) -> ExtractionResult:
         self.captured.append((text, context))
         return self.result
+
+    async def judge_duplicate_pairs(
+        self, *, pairs: list[dict[str, object]], context: dict[str, object]
+    ) -> DuplicateJudgementResult:
+        self.judge_calls.append(pairs)
+        verdicts = [
+            DuplicateVerdict(
+                left_id=str(pair["left_id"]),
+                right_id=str(pair["right_id"]),
+                equivalent=(str(pair["left_id"]), str(pair["right_id"])) in self.equivalent_pairs,
+            )
+            for pair in pairs
+        ]
+        return DuplicateJudgementResult(
+            verdicts=verdicts, model_name="mock", prompt_version="duplicate_judge_v1"
+        )
 
     async def consolidate_memories(
         self,

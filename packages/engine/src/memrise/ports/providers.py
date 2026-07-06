@@ -144,10 +144,31 @@ class AnswerResult(BaseModel):
     prompt_version: str
 
 
+class DuplicateVerdict(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    left_id: str
+    right_id: str
+    equivalent: bool
+
+
+class DuplicateJudgementResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: str = Field(default="duplicate_judge_v1")
+    verdicts: list[DuplicateVerdict] = Field(default_factory=list, max_length=200)
+    model_name: str
+    prompt_version: str
+
+
 class CompletionProvider(Protocol):
     async def extract_memories(
         self, *, text: str, context: dict[str, object]
     ) -> ExtractionResult: ...
+
+    async def judge_duplicate_pairs(
+        self, *, pairs: list[dict[str, object]], context: dict[str, object]
+    ) -> DuplicateJudgementResult: ...
 
     async def consolidate_memories(
         self,

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from openai import AsyncOpenAI, AuthenticationError
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from memrise.graph.schema import GraphSchemaPack
 from memrise.integrations.qwen.errors import QwenProviderError
@@ -11,6 +11,8 @@ from memrise.ports.providers import (
     AnswerResult,
     CompletionProvider,
     ConsolidationResult,
+    DuplicateJudgementResult,
+    DuplicateVerdict,
     EmbeddingProvider,
     EmbeddingVector,
     ExtractionResult,
@@ -21,6 +23,13 @@ PROMPT_DIR = Path(__file__).parent / "prompts"
 MEMORY_EXTRACTION_PROMPT_VERSION = "memory_extraction_v1"
 CONSOLIDATION_PROMPT_VERSION = "consolidation_v1"
 AGENT_ANSWER_PROMPT_VERSION = "agent_answer_v1"
+DUPLICATE_JUDGE_PROMPT_VERSION = "duplicate_judge_v1"
+
+
+class _JudgeVerdicts(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verdicts: list[DuplicateVerdict] = Field(default_factory=list, max_length=200)
 
 
 class QwenCompletionProvider(CompletionProvider):
@@ -34,6 +43,9 @@ class QwenCompletionProvider(CompletionProvider):
             encoding="utf-8"
         )
         self._answer_prompt = (PROMPT_DIR / f"{AGENT_ANSWER_PROMPT_VERSION}.md").read_text(
+            encoding="utf-8"
+        )
+        self._judge_prompt = (PROMPT_DIR / f"{DUPLICATE_JUDGE_PROMPT_VERSION}.md").read_text(
             encoding="utf-8"
         )
 
@@ -64,6 +76,33 @@ class QwenCompletionProvider(CompletionProvider):
                 "model_name": self._settings.qwen_memory_model,
                 "prompt_version": MEMORY_EXTRACTION_PROMPT_VERSION,
             }
+        )
+
+    async def judge_duplicate_pairs(
+        self, *, pairs: list[dict[str, object]], context: dict[str, object]
+    ) -> DuplicateJudgementResult:
+        if not pairs:
+            return DuplicateJudgementResult(
+                verdicts=[],
+                model_name=self._settings.qwen_memory_model,
+                prompt_version=DUPLICATE_JUDGE_PROMPT_VERSION,
+            )
+        client = _require_client(self._client)
+        try:
+            parsed = await self._complete_validated_json(
+                client,
+                system_prompt=self._judge_prompt,
+                user_payload={"pairs": pairs, "context": context},
+                model_cls=_JudgeVerdicts,
+                task_label="duplicate_judge",
+            )
+        except AuthenticationError as exc:
+            msg = "Qwen duplicate-judge authentication failed; verify ALIBABA_CLOUD_API_KEY"
+            raise QwenProviderError(msg) from exc
+        return DuplicateJudgementResult(
+            verdicts=[DuplicateVerdict.model_validate(v.model_dump()) for v in parsed.verdicts],
+            model_name=self._settings.qwen_memory_model,
+            prompt_version=DUPLICATE_JUDGE_PROMPT_VERSION,
         )
 
     async def consolidate_memories(

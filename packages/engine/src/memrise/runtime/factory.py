@@ -80,7 +80,7 @@ def build_runtime_services(
             embedding_provider=embedding_provider,
         ),
         lifecycle=lifecycle,
-        dedupe=MemoryDedupeService(store=store),
+        dedupe=MemoryDedupeService(store=store, completion_provider=completion_provider),
     )
     return RuntimeServices(
         write=write,
