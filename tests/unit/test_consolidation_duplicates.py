@@ -41,11 +41,11 @@ def test_find_duplicate_clusters_groups_near_identical() -> None:
 def test_find_duplicate_clusters_uses_single_linkage() -> None:
     # Real-embedding case: A~B and B~C clear the bar, but A~C sits just under it.
     # C must still merge, linked through B, or it escapes the cluster.
-    # Unit vectors at 0deg, 15deg, 30deg: adjacent steps clear cos15=0.966 >= 0.93,
-    # but the ends sit at cos30=0.866 < 0.93.
+    # Unit vectors at 0deg, 20deg, 40deg: adjacent steps clear cos20=0.940 >= 0.85,
+    # but the ends sit at cos40=0.766 < 0.85.
     a = _mem("memv_a", subject="lockfile", key="rule", vector=[1.0, 0.0], confidence=0.95)
-    b = _mem("memv_b", subject="pnpm_lock", key="edit", vector=[0.96593, 0.25882], confidence=0.7)
-    c = _mem("memv_c", subject="gen_lock", key="edits", vector=[0.86603, 0.5], confidence=0.6)
+    b = _mem("memv_b", subject="pnpm_lock", key="edit", vector=[0.93969, 0.34202], confidence=0.7)
+    c = _mem("memv_c", subject="gen_lock", key="edits", vector=[0.76604, 0.64279], confidence=0.6)
 
     # Sanity: A~C is below the default threshold while A~B and B~C are above it.
     from memrise.consolidation.duplicates import MERGE_SIMILARITY_THRESHOLD

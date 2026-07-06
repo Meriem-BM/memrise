@@ -4,10 +4,14 @@ from memrise.core.embeddings import cosine_similarity
 from memrise.core.models import CanonicalMemory
 
 # Above this cosine similarity, two same-scope memories are treated as saying the
-# same thing and merged into one survivor. Set high so that distinct or
-# contradictory facts (e.g. "uses npm" vs "uses pnpm") stay separate and are left
-# to reconciliation / the contested lifecycle.
-MERGE_SIMILARITY_THRESHOLD = 0.93
+# same thing and merged into one survivor. Tuned against real text-embedding-v4
+# vectors, whose paraphrase similarities are compressed: clean paraphrases land
+# ~0.85-0.90 while distinct same-topic facts top out ~0.72, so this sits in that
+# gap. It errs toward precision: hard paraphrases the model scores low (e.g.
+# differently phrased rules at ~0.60) are left for reconciliation and, in future,
+# an LLM equivalence judge. Single-linkage bridges paraphrases individually just
+# under the bar.
+MERGE_SIMILARITY_THRESHOLD = 0.85
 
 
 @dataclass(frozen=True, slots=True)
