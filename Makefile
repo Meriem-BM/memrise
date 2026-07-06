@@ -1,4 +1,7 @@
-UV_ENV=UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python
+# Use uv's default (persistent) Python + cache locations. The old /tmp dirs got
+# purged on reboot, breaking the venv. Override UV_ENV in ephemeral CI if wanted,
+# e.g. `make check UV_ENV="UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON_INSTALL_DIR=/tmp/uv-python"`.
+UV_ENV ?=
 COMPOSE=docker compose -f infra/compose.yaml
 
 .PHONY: bootstrap install-hooks dev dev-local stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset postgres-up migrate migration export-openapi generate-sdk
