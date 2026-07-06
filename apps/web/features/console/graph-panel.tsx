@@ -95,7 +95,7 @@ export function GraphPanel({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-white/2">
+    <section className="flex flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-panel">
       <div className="flex items-center justify-between gap-2 px-4 pt-4">
         <h2 className="font-mono text-[11px] uppercase tracking-widest text-faint">
           Knowledge graph

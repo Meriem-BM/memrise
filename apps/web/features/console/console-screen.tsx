@@ -48,7 +48,7 @@ export function ConsoleScreen() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <section className="flex min-h-[75vh] flex-col rounded-2xl border border-border bg-white/2">
+      <section className="flex min-h-[75vh] flex-col rounded-2xl border border-border bg-panel">
         <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
           <p className="font-mono text-xs text-faint">
             memrise <span className="text-white/30">›</span>{" "}
@@ -61,27 +61,27 @@ export function ConsoleScreen() {
               aria-checked={memriseEnabled}
               aria-label={memriseEnabled ? "Deactivate Memrise" : "Activate Memrise"}
               onClick={() => setMemriseEnabled((current) => !current)}
-              className="group inline-flex h-8 min-w-32 items-center gap-2 rounded-full px-1.5 pr-2.5 font-mono text-[11px] text-white/55 transition-transform active:scale-[0.96]"
+              className="group inline-flex items-center gap-2 font-mono text-[11px] transition-transform active:scale-[0.97]"
             >
               <span
                 className={cn(
-                  "relative h-5 w-9 rounded-full border transition-[background-color,border-color]",
+                  "inline-flex h-5 w-9 items-center rounded-full border transition-colors",
                   memriseEnabled
-                    ? "border-emerald-300/35 bg-emerald-300/20"
+                    ? "border-violet-300/40 bg-violet-300/25"
                     : "border-white/15 bg-white/5",
                 )}
                 aria-hidden
               >
                 <span
                   className={cn(
-                    "absolute left-0.5 top-0.5 size-4 rounded-full transition-transform",
+                    "size-3.5 rounded-full transition-transform duration-200 ease-out",
                     memriseEnabled
-                      ? "translate-x-4 bg-emerald-200"
-                      : "translate-x-0 bg-white/40 group-hover:bg-white/65",
+                      ? "translate-x-[18px] bg-violet-200"
+                      : "translate-x-0.5 bg-white/45 group-hover:bg-white/70",
                   )}
                 />
               </span>
-              <span className={memriseEnabled ? "text-emerald-100" : "text-white/45"}>Memrise</span>
+              <span className={memriseEnabled ? "text-violet-100" : "text-white/50"}>Memrise</span>
             </button>
             <button
               type="button"
@@ -129,7 +129,7 @@ export function ConsoleScreen() {
                     className={cn(
                       "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px]",
                       entry.memoryEnabled
-                        ? "border-emerald-300/30 text-emerald-100/80"
+                        ? "border-violet-300/30 text-violet-100/80"
                         : "border-white/10 text-white/35",
                     )}
                   >

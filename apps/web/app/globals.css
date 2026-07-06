@@ -8,18 +8,19 @@
   color-scheme: dark;
 
   /* canvas + surfaces */
-  --background: #000000;
+  --background: #0a0a0b;
+  --panel: rgba(255, 255, 255, 0.035);
   --surface: #1a1a1a;
   --elevated: #232323;
 
   /* text */
   --foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.4);
-  --faint: rgba(255, 255, 255, 0.2);
+  --muted: rgba(255, 255, 255, 0.58);
+  --faint: rgba(255, 255, 255, 0.4);
 
   /* hairlines */
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.26);
 
   /* semantic status — desaturated, quiet */
   --ok: #a7f3d0;
@@ -33,6 +34,7 @@
 /* expose tokens as Tailwind utilities (v4 @theme inline) */
 @theme inline {
   --color-background: var(--background);
+  --color-panel: var(--panel);
   --color-surface: var(--surface);
   --color-elevated: var(--elevated);
   --color-foreground: var(--foreground);

@@ -82,7 +82,7 @@ export function SdkPage({ highlighted }: { highlighted: Record<string, string> }
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-border bg-white/1.5 px-6 py-10 text-center">
+        <div className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-border bg-panel px-6 py-10 text-center">
           <h3 className="text-xl font-medium text-white">See it think.</h3>
           <p className="max-w-md text-sm text-muted">
             The console runs this exact loop live. Every prompt recalls, learns, and grows the

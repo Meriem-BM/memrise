@@ -21,7 +21,7 @@ export function TracePanel({
   feedbackScores: Record<string, number>;
 }) {
   return (
-    <section className="flex-1 overflow-y-auto rounded-2xl border border-border bg-white/2 p-4">
+    <section className="flex-1 overflow-y-auto rounded-2xl border border-border bg-panel p-4">
       <h2 className="font-mono text-[11px] uppercase tracking-widest text-faint">Trace</h2>
       {!turn ? (
         <p className="mt-3 text-sm text-muted">Select a turn to see its story.</p>
@@ -34,7 +34,7 @@ export function TracePanel({
             ) : turn.answer.status === "error" ? (
               <p className="mt-2 text-sm text-danger">{turn.answer.error}</p>
             ) : (
-              <div className="mt-2 rounded-lg border border-border bg-white/2 p-3">
+              <div className="mt-2 rounded-lg border border-border bg-panel p-3">
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.answer.text}</p>
                 <p className="mt-3 font-mono text-[11px] text-faint">
                   {turn.answer.modelName} · {turn.answer.promptVersion} ·{" "}
@@ -59,7 +59,7 @@ export function TracePanel({
                 {turn.recall.rows?.map((row) => (
                   <div
                     key={row.memory.memory_version_id}
-                    className="rounded-lg border border-border bg-white/2 p-3"
+                    className="rounded-lg border border-border bg-panel p-3"
                   >
                     <p className="text-sm leading-relaxed">{row.memory.content}</p>
                     <div className="mt-2 space-y-1">
