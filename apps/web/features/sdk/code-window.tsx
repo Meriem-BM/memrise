@@ -68,7 +68,7 @@ export function CodeWindow({
       {glow ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[2.5rem] bg-[radial-gradient(50%_45%_at_50%_0%,rgba(199,146,234,0.16),transparent_72%)] blur-2xl"
+          className="pointer-events-none absolute -inset-x-10 -top-10 bottom-0 -z-10 rounded-[2.5rem] bg-[radial-gradient(50%_45%_at_50%_0%,color-mix(in_srgb,var(--accent)_18%,transparent),transparent_72%)] blur-2xl"
         />
       ) : null}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#07080b] shadow-[0_24px_70px_-24px_rgba(0,0,0,0.9)]">

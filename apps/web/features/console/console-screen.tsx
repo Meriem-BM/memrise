@@ -66,9 +66,7 @@ export function ConsoleScreen() {
               <span
                 className={cn(
                   "inline-flex h-5 w-9 items-center rounded-full border transition-colors",
-                  memriseEnabled
-                    ? "border-violet-300/40 bg-violet-300/25"
-                    : "border-white/15 bg-white/5",
+                  memriseEnabled ? "border-accent/45 bg-accent/20" : "border-white/15 bg-white/5",
                 )}
                 aria-hidden
               >
@@ -76,12 +74,12 @@ export function ConsoleScreen() {
                   className={cn(
                     "size-3.5 rounded-full transition-transform duration-200 ease-out",
                     memriseEnabled
-                      ? "translate-x-[18px] bg-violet-200"
+                      ? "translate-x-[18px] bg-accent"
                       : "translate-x-0.5 bg-white/45 group-hover:bg-white/70",
                   )}
                 />
               </span>
-              <span className={memriseEnabled ? "text-violet-100" : "text-white/50"}>Memrise</span>
+              <span className={memriseEnabled ? "text-accent" : "text-white/50"}>Memrise</span>
             </button>
             <button
               type="button"
@@ -129,7 +127,7 @@ export function ConsoleScreen() {
                     className={cn(
                       "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px]",
                       entry.memoryEnabled
-                        ? "border-violet-300/30 text-violet-100/80"
+                        ? "border-accent/35 text-accent"
                         : "border-white/10 text-white/35",
                     )}
                   >

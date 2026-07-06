@@ -22,6 +22,10 @@
   --border: rgba(255, 255, 255, 0.14);
   --border-strong: rgba(255, 255, 255, 0.26);
 
+  /* secondary accent — a soft light violet, used sparingly for active/brand moments */
+  --accent: #c4b5fd;
+  --accent-soft: rgba(196, 181, 253, 0.2);
+
   /* semantic status — desaturated, quiet */
   --ok: #a7f3d0;
   --warn: #fde68a;
@@ -41,6 +45,8 @@
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
@@ -73,7 +79,7 @@
   }
 
   ::selection {
-    background: rgba(255, 255, 255, 0.3);
+    background: color-mix(in srgb, var(--accent) 32%, transparent);
     color: #fff;
   }
 }
@@ -124,7 +130,7 @@
 .focus-ring:focus-visible,
 .focus-ring:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 /* scrollbars */
