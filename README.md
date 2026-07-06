@@ -5,16 +5,16 @@
 <h1 align="center">Memrise</h1>
 
 <p align="center">
-  A temporal, hybrid memory engine for AI agents — recall, forget, and learn across sessions.
+  <b>Capture experience, recall what matters, forget what's stale</b>, so your agents get sharper every session.
 </p>
 
 ---
 
-**Memrise is a temporal, hybrid memory engine for AI agents.** It lets an agent autonomously accumulate experience, remember user preferences, forget what has gone stale, and recall the critical facts even inside a tight context window, across many turns and many sessions.
+Most agents forget everything the moment a session ends. **Memrise gives them a memory that lasts.** It captures what happens, keeps what matters, retires what goes stale, and surfaces the critical facts on demand, even inside a tight context window and across many turns and sessions.
 
-It stores experience as **immutable episodes**, consolidates durable knowledge into **versioned canonical memories**, projects accepted memories into a **temporal knowledge graph**, retrieves with **lexical + semantic + graph** signals fused together, and **learns from retrieval outcomes** without ever rewriting the truth it stored.
+Under the hood it's a **temporal, hybrid memory engine**. It stores raw experience as **immutable episodes**, distills durable knowledge into **versioned canonical memories**, projects accepted facts into a **temporal knowledge graph**, and retrieves by fusing **lexical, semantic, and graph** signals, then **learns from what actually helped**, without ever rewriting the truth it stored.
 
-**PostgreSQL is the single source of truth** for episodes, canonical memories, embeddings, full-text search, graph claims, graph projection, retrieval traces, feedback, and background jobs.
+**PostgreSQL is the single source of truth.** Episodes, canonical memories, embeddings, full-text search, graph claims and projection, retrieval traces, feedback, and background jobs all live in one database.
 
 ---
 
@@ -40,7 +40,7 @@ It stores experience as **immutable episodes**, consolidates durable knowledge i
 
 ## The problem this solves
 
-An agent needs to "autonomously accumulate experience, remember user preferences, and make increasingly accurate decisions across multi-turn, cross-session interactions" — which comes down to **efficient storage and retrieval**, **timely forgetting of outdated information**, and **recalling critical memories within limited context windows**.
+An agent needs to "autonomously accumulate experience, remember user preferences, and make increasingly accurate decisions across multi-turn, cross-session interactions," which comes down to **efficient storage and retrieval**, **timely forgetting of outdated information**, and **recalling critical memories within limited context windows**.
 
 Memrise maps each of those to a concrete mechanism:
 
