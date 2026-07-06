@@ -1,4 +1,14 @@
-# Memrise
+<p align="center">
+  <img src="docs/logo.png" alt="Memrise" width="88" />
+</p>
+
+<h1 align="center">Memrise</h1>
+
+<p align="center">
+  A temporal, hybrid memory engine for AI agents — recall, forget, and learn across sessions.
+</p>
+
+---
 
 **Memrise is a temporal, hybrid memory engine for AI agents.** It lets an agent autonomously accumulate experience, remember user preferences, forget what has gone stale, and recall the critical facts even inside a tight context window, across many turns and many sessions.
 
