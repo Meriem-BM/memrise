@@ -240,7 +240,7 @@ PostgreSQL holds every durable fact:
 - **Graph**: `graph_entities` and `graph_claims` in PostgreSQL, projected into an Apache AGE temporal graph of typed relations.
 - **Retrieval traces**: per-query, per-candidate scoring records.
 - **Feedback**: outcome signals (`helpful`/`unused`/`harmful`) from `user`/`developer`/`tool`/`evaluator`/`agent`.
-- **Jobs**: `extract_episode`, `consolidate_session`, `expire_memories`, `project_graph`, `rebuild_graph`.
+- **Jobs**: `extract_episode`, `consolidate_session`, `expire_memories`, `dedupe_memories`, `project_graph`, `rebuild_graph`.
 
 ---
 
@@ -353,7 +353,7 @@ Pre-commit hooks run staged-file-aware Ruff, Prettier, ESLint/typecheck, and Pyr
 
 ## Current limitations
 
-- Consolidation replays session extraction and runs a semantic near-duplicate merge that supersedes weaker restatements into the strongest survivor (history is preserved, never deleted). Contradiction cleanup still relies on reconciliation and the contested lifecycle; LLM-driven compression into higher-order lessons is not yet wired.
+- Duplicate memories are handled two ways: write-time prevention (a scope-wide nearest-neighbor check reinforces an existing memory instead of adding a near-identical restatement) and a periodic `DEDUPE_MEMORIES` sweep that merges any that slip through, per scope. Merges supersede weaker restatements into the strongest survivor; history is preserved, never deleted. Contradiction cleanup still relies on reconciliation and the contested lifecycle; LLM-driven compression into higher-order lessons is not yet wired.
 - Capture, remember, retrieve, and respond require a configured Qwen API key, there is no in-app model fallback.
 - Qwen prompts are initial versions and need eval-driven refinement.
 - Authorization is a simple API key, intentionally not production-grade multi-tenant auth.

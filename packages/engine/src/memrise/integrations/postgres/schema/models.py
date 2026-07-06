@@ -293,8 +293,8 @@ class JobRow(Base):
     __tablename__ = "jobs"
     __table_args__ = (
         CheckConstraint(
-            "type in ('extract_episode','consolidate_session',"
-            "'expire_memories','process_feedback','project_graph')",
+            "type in ('extract_episode','consolidate_session','expire_memories',"
+            "'dedupe_memories','project_graph','rebuild_graph')",
             name="ck_jobs_type",
         ),
         CheckConstraint(

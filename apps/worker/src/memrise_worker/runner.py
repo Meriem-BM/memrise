@@ -14,11 +14,13 @@ class WorkerRunner:
         self._memory = memory
         self._settings = settings
         self._last_lifecycle_bucket: int | None = None
+        self._last_dedupe_bucket: int | None = None
 
     async def run_forever(self, stop_event: asyncio.Event) -> None:
         LOGGER.info("worker started", extra={"worker_id": self._settings.memrise_worker_id})
         while not stop_event.is_set():
             await self._schedule_lifecycle()
+            await self._schedule_dedupe()
             processed = await self.run_once()
             if not processed:
                 try:
@@ -54,3 +56,16 @@ class WorkerRunner:
             dedupe_key=f"lifecycle:{bucket}",
         )
         self._last_lifecycle_bucket = bucket
+
+    async def _schedule_dedupe(self) -> None:
+        """Enqueue one duplicate-merge sweep per interval; dedupe key makes it safe."""
+        interval = max(60, self._settings.memrise_dedupe_interval_seconds)
+        bucket = int(utc_now().timestamp()) // interval
+        if bucket == self._last_dedupe_bucket:
+            return
+        await self._memory.jobs.enqueue(
+            job_type=JobType.DEDUPE_MEMORIES,
+            payload={},
+            dedupe_key=f"dedupe:{bucket}",
+        )
+        self._last_dedupe_bucket = bucket

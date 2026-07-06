@@ -46,6 +46,8 @@ class MemoryStore(Protocol):
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]: ...
 
+    async def list_active_scopes(self) -> list[Scope]: ...
+
     async def list_critical_memories(
         self,
         *,

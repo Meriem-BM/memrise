@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from memrise.consolidation.dedupe import MemoryDedupeService
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.learning.lifecycle import LifecycleService
@@ -79,6 +80,7 @@ def build_runtime_services(
             embedding_provider=embedding_provider,
         ),
         lifecycle=lifecycle,
+        dedupe=MemoryDedupeService(store=store),
     )
     return RuntimeServices(
         write=write,

@@ -1,3 +1,4 @@
+from memrise.consolidation.dedupe import MemoryDedupeService
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import JobType
 from memrise.core.errors import UnimplementedJobError
@@ -20,6 +21,7 @@ class JobProcessor:
         graph_projection: GraphProjectionService,
         session_consolidation: SessionConsolidationService,
         lifecycle: LifecycleService,
+        dedupe: MemoryDedupeService,
         graph_rebuild: GraphRebuildService | None = None,
     ) -> None:
         self._store = store
@@ -27,6 +29,7 @@ class JobProcessor:
         self._graph_projection = graph_projection
         self._session_consolidation = session_consolidation
         self._lifecycle = lifecycle
+        self._dedupe = dedupe
         self._graph_rebuild = graph_rebuild
 
     async def process(self, job: BackgroundJob) -> None:
@@ -68,6 +71,9 @@ class JobProcessor:
             return
         if job.type == JobType.EXPIRE_MEMORIES:
             await self._lifecycle.run(utc_now())
+            return
+        if job.type == JobType.DEDUPE_MEMORIES:
+            await self._dedupe.run(utc_now())
             return
         raise UnimplementedJobError(job.type)
 

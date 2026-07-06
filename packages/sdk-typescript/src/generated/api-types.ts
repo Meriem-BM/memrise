@@ -627,7 +627,7 @@ export interface components {
          * JobType
          * @enum {string}
          */
-        JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "project_graph" | "rebuild_graph";
+        JobType: "extract_episode" | "consolidate_session" | "expire_memories" | "dedupe_memories" | "project_graph" | "rebuild_graph";
         /** LifecycleRunResponse */
         LifecycleRunResponse: {
             /** Decayed Versions */

@@ -89,6 +89,9 @@ class PostgresMemoryStore:
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:
         return await self._memories.list_memory_history(memory_id)
 
+    async def list_active_scopes(self) -> list[Scope]:
+        return await self._memories.list_active_scopes()
+
     async def list_critical_memories(
         self,
         *,

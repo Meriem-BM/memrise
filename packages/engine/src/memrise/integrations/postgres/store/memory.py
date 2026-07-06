@@ -27,6 +27,7 @@ from memrise.integrations.postgres.store.queries import (
     find_matching_historical_memory_in_session,
     find_semantic_duplicate_in_session,
     get_memories_by_version_ids_in_session,
+    list_active_scopes_in_session,
     list_critical_memories_in_session,
     lock_logical_memory_in_session,
     search_lexical_in_session,
@@ -158,6 +159,10 @@ class PostgresMemoryRepository:
                 loser.updated_at = now
                 resolved += 1
             return resolved
+
+    async def list_active_scopes(self) -> list[Scope]:
+        async with self._session_factory() as session:
+            return await list_active_scopes_in_session(session)
 
     async def list_critical_memories(
         self,

@@ -276,6 +276,34 @@ def _live_scope_filters(scope: Scope) -> list:
     ]
 
 
+async def list_active_scopes_in_session(session: AsyncSession) -> list[Scope]:
+    """Distinct scopes that currently hold live memories, for per-scope sweeps."""
+    now = utc_now()
+    rows = (
+        await session.execute(
+            select(
+                MemoryRow.namespace_id,
+                MemoryRow.agent_id,
+                MemoryRow.user_id,
+                MemoryRow.project_id,
+            )
+            .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
+            .where(
+                MemoryVersionRow.status.in_(
+                    [MemoryStatus.ACTIVE.value, MemoryStatus.CONTESTED.value]
+                ),
+                MemoryVersionRow.valid_from <= now,
+                or_(MemoryVersionRow.valid_until.is_(None), MemoryVersionRow.valid_until > now),
+            )
+            .distinct()
+        )
+    ).all()
+    return [
+        Scope(namespace_id=namespace_id, agent_id=agent_id, user_id=user_id, project_id=project_id)
+        for namespace_id, agent_id, user_id, project_id in rows
+    ]
+
+
 async def list_critical_memories_in_session(
     session: AsyncSession,
     *,

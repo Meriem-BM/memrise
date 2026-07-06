@@ -17,6 +17,10 @@ class MemorySettings(BaseSettings):
         default=3600,
         alias="MEMRISE_LIFECYCLE_INTERVAL_SECONDS",
     )
+    memrise_dedupe_interval_seconds: int = Field(
+        default=3600,
+        alias="MEMRISE_DEDUPE_INTERVAL_SECONDS",
+    )
     memrise_usefulness_half_life_days: float = Field(
         default=30.0,
         alias="MEMRISE_USEFULNESS_HALF_LIFE_DAYS",

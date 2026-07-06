@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from memrise.consolidation.duplicates import find_duplicate_clusters
+from memrise.consolidation.dedupe import merge_scope_duplicates
 from memrise.core.models import Scope
 from memrise.ports.providers import (
     CompletionProvider,
@@ -117,16 +117,7 @@ class SessionConsolidationService:
         supersedes the weaker members into the strongest. Returns how many memories
         were superseded.
         """
-        memories = await self._store.list_active_memories(scope=scope)
-        clusters = find_duplicate_clusters(memories)
-        superseded = 0
-        for cluster in clusters:
-            superseded += await self._store.supersede_memories_as_duplicates(
-                survivor_version_id=cluster.survivor.version.id,
-                duplicate_version_ids=[duplicate.version.id for duplicate in cluster.duplicates],
-                now=now,
-            )
-        return superseded
+        return await merge_scope_duplicates(self._store, scope=scope, now=now)
 
 
 def _reject_candidate(candidate: ExtractedMemoryCandidate, *, session_text: str) -> bool:

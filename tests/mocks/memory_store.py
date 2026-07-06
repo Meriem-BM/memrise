@@ -340,6 +340,33 @@ class MemoryStoreStub:
                 superseded += 1
         return superseded
 
+    async def list_active_scopes(self) -> list[Scope]:
+        now = _utc_now()
+        scopes: list[Scope] = []
+        seen: set[tuple[str, str, str | None, str | None]] = set()
+        for memory in self.memories:
+            version = memory.version
+            if version.status not in (MemoryStatus.ACTIVE, MemoryStatus.CONTESTED):
+                continue
+            if version.valid_from > now:
+                continue
+            if version.valid_until is not None and version.valid_until <= now:
+                continue
+            identity = memory.identity
+            key = (identity.namespace_id, identity.agent_id, identity.user_id, identity.project_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            scopes.append(
+                Scope(
+                    namespace_id=identity.namespace_id,
+                    agent_id=identity.agent_id,
+                    user_id=identity.user_id,
+                    project_id=identity.project_id,
+                )
+            )
+        return scopes
+
     async def list_critical_memories(
         self,
         *,

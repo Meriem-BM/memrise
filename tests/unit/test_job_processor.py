@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from memrise.consolidation.dedupe import MemoryDedupeService
 from memrise.consolidation.session_consolidation import SessionConsolidationService
 from memrise.core.enums import EpisodeKind, JobStatus, JobType
 from memrise.core.models import BackgroundJob, Episode
@@ -58,6 +59,7 @@ def _processor(store: MemoryStoreStub) -> JobProcessor:
             embedding_provider=MockEmbeddingProvider(),
         ),
         lifecycle=LifecycleService(store=store),
+        dedupe=MemoryDedupeService(store=store),
     )
 
 

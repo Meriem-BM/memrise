@@ -93,6 +93,7 @@ class JobType(StrEnum):
     EXTRACT_EPISODE = "extract_episode"
     CONSOLIDATE_SESSION = "consolidate_session"
     EXPIRE_MEMORIES = "expire_memories"
+    DEDUPE_MEMORIES = "dedupe_memories"
     PROJECT_GRAPH = "project_graph"
     REBUILD_GRAPH = "rebuild_graph"
 

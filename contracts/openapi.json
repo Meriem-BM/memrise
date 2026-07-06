@@ -960,6 +960,7 @@
           "extract_episode",
           "consolidate_session",
           "expire_memories",
+          "dedupe_memories",
           "project_graph",
           "rebuild_graph"
         ],
