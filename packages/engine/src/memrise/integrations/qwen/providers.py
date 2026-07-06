@@ -100,7 +100,7 @@ class QwenCompletionProvider(CompletionProvider):
             msg = "Qwen duplicate-judge authentication failed; verify ALIBABA_CLOUD_API_KEY"
             raise QwenProviderError(msg) from exc
         return DuplicateJudgementResult(
-            verdicts=[DuplicateVerdict.model_validate(v.model_dump()) for v in parsed.verdicts],
+            verdicts=parsed.verdicts,
             model_name=self._settings.qwen_memory_model,
             prompt_version=DUPLICATE_JUDGE_PROMPT_VERSION,
         )
