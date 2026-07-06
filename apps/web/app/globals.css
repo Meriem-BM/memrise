@@ -7,20 +7,20 @@
 :root {
   color-scheme: dark;
 
-  /* canvas + surfaces */
-  --background: #0a0a0b;
-  --panel: rgba(255, 255, 255, 0.035);
-  --surface: #1a1a1a;
-  --elevated: #232323;
+  /* canvas + surfaces — dark aubergine, tinted toward the violet accent */
+  --background: #110c1a;
+  --panel: rgba(196, 181, 253, 0.06);
+  --surface: #1c1726;
+  --elevated: #241d33;
 
   /* text */
   --foreground: #ffffff;
   --muted: rgba(255, 255, 255, 0.58);
   --faint: rgba(255, 255, 255, 0.4);
 
-  /* hairlines */
-  --border: rgba(255, 255, 255, 0.14);
-  --border-strong: rgba(255, 255, 255, 0.26);
+  /* hairlines — violet-tinted */
+  --border: rgba(196, 181, 253, 0.16);
+  --border-strong: rgba(196, 181, 253, 0.32);
 
   /* secondary accent — a soft light violet, used sparingly for active/brand moments */
   --accent: #c4b5fd;
