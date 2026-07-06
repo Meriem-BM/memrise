@@ -14,6 +14,7 @@ from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.ids import IdGenerator
 from memrise.ports.providers import EmbeddingProvider, TokenCounter
 from memrise.ports.repositories import MemoryStore
+from memrise.read.query_embedding_cache import QueryEmbeddingCache
 
 RRF_K = 60
 # Contested memories stay retrievable but rank below equally scored active ones.
@@ -142,7 +143,7 @@ class RetrievalService:
             if graph_claim_store is not None
             else None
         )
-        self._embedding_provider = embedding_provider
+        self._query_embeddings = QueryEmbeddingCache(embedding_provider)
         self._token_counter = token_counter
         self._ids = ids
 
@@ -302,7 +303,7 @@ class RetrievalService:
         query: str,
         admit: Callable[[CanonicalMemory], bool],
     ) -> list[RetrievalCandidate]:
-        query_embedding = await self._embedding_provider.embed(query)
+        query_embedding = await self._query_embeddings.embed_query(query)
         hits = await self._store.search_semantic(
             scope=scope, embedding=query_embedding, limit=CHANNEL_LIMIT
         )

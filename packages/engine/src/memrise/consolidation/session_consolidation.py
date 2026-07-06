@@ -87,12 +87,15 @@ class SessionConsolidationService:
 
         session_text = "\n".join(episode.content for episode in episodes)
         source_episode_ids = [episode.id for episode in episodes]
-        for candidate in result.candidates:
-            if _reject_candidate(candidate, session_text=session_text):
-                continue
-            embedding = await self._embedding_provider.embed(
-                embedding_text_for_candidate(candidate)
-            )
+        accepted = [
+            candidate
+            for candidate in result.candidates
+            if not _reject_candidate(candidate, session_text=session_text)
+        ]
+        embeddings = await self._embedding_provider.embed_many(
+            [embedding_text_for_candidate(candidate) for candidate in accepted]
+        )
+        for candidate, embedding in zip(accepted, embeddings, strict=True):
             outcome = await self._store.apply_candidate(
                 scope=scope,
                 candidate=candidate,

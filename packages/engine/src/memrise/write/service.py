@@ -78,7 +78,7 @@ class WriteService:
 
         existing_stages = await self._store.list_candidate_stages_for_episode(episode_id)
         if existing_stages:
-            return await self._resume_extraction(episode, existing_stages, now)
+            return await self._resume_extraction(episode, existing_stages)
 
         extraction = await self._completion_provider.extract_memories(
             text=episode.content,
@@ -100,7 +100,6 @@ class WriteService:
         self,
         episode: Episode,
         stages: list[MemoryCandidateStage],
-        now: datetime,
     ) -> ExtractionOutcome:
         scope = scope_from_namespace_agent(
             namespace_id=episode.namespace_id,
@@ -110,6 +109,7 @@ class WriteService:
         )
         created: list[str] = []
         graph_jobs: list[str] = []
+        pending: list[tuple[MemoryCandidateStage, ExtractedMemoryCandidate]] = []
         for stage in stages:
             if stage.status == CandidateStageStatus.PROMOTED and stage.memory_version_id:
                 created.append(stage.memory_version_id)
@@ -121,11 +121,15 @@ class WriteService:
                 continue
             if stage.status != CandidateStageStatus.STAGED or not stage.candidate:
                 continue
-            candidate = ExtractedMemoryCandidate.model_validate(stage.candidate)
+            pending.append((stage, ExtractedMemoryCandidate.model_validate(stage.candidate)))
+
+        # Batch all staged embeddings into one provider round trip; a failure here
+        # raises before any apply, leaving stages STAGED for a later resume.
+        embeddings = await self._embedding_provider.embed_many(
+            [embedding_text_for_candidate(candidate) for _, candidate in pending]
+        )
+        for (stage, candidate), embedding in zip(pending, embeddings, strict=True):
             try:
-                embedding = await self._embedding_provider.embed(
-                    embedding_text_for_candidate(candidate)
-                )
                 apply_outcome = await self._store.apply_candidate(
                     scope=scope,
                     candidate=candidate,
@@ -170,42 +174,45 @@ class WriteService:
         )
         created: list[str] = []
         graph_jobs: list[str] = []
+        # Pass 1: persist every candidate stage and collect the promotable ones.
+        promotable: list[tuple[str, ExtractedMemoryCandidate]] = []
         for decision in decisions:
             candidate = decision.candidate
-            stage_id: str | None = None
+            stage_id = await self._store.save_candidate_stage(
+                MemoryCandidateStage(
+                    id=self._ids.new_id("cand"),
+                    episode_id=episode.id,
+                    namespace_id=episode.namespace_id,
+                    agent_id=episode.agent_id,
+                    user_id=episode.user_id,
+                    project_id=episode.project_id,
+                    candidate_index=decision.candidate_index,
+                    schema_version=extraction_metadata.schema_version,
+                    model_name=extraction_metadata.model_name,
+                    prompt_version=extraction_metadata.prompt_version,
+                    classification=extraction_metadata.classification.model_dump(mode="json"),
+                    candidate=candidate.model_dump(mode="json") if candidate is not None else {},
+                    memory_type=candidate.type.value if candidate is not None else None,
+                    subject=candidate.subject if candidate is not None else None,
+                    key=candidate.key if candidate is not None else None,
+                    evidence_quote=candidate.evidence_quote if candidate is not None else None,
+                    status=decision.status,
+                    promotion_score=decision.promotion_score,
+                    rejection_reason=decision.rejection_reason,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            if decision.should_promote and candidate is not None:
+                promotable.append((stage_id, candidate))
+
+        # Pass 2: one batched embedding round trip for all promotable candidates.
+        embeddings = await self._embedding_provider.embed_many(
+            [embedding_text_for_candidate(candidate) for _, candidate in promotable]
+        )
+        # Pass 3: apply each with its embedding, failing its own stage on error.
+        for (stage_id, candidate), embedding in zip(promotable, embeddings, strict=True):
             try:
-                stage_id = await self._store.save_candidate_stage(
-                    MemoryCandidateStage(
-                        id=self._ids.new_id("cand"),
-                        episode_id=episode.id,
-                        namespace_id=episode.namespace_id,
-                        agent_id=episode.agent_id,
-                        user_id=episode.user_id,
-                        project_id=episode.project_id,
-                        candidate_index=decision.candidate_index,
-                        schema_version=extraction_metadata.schema_version,
-                        model_name=extraction_metadata.model_name,
-                        prompt_version=extraction_metadata.prompt_version,
-                        classification=extraction_metadata.classification.model_dump(mode="json"),
-                        candidate=candidate.model_dump(mode="json")
-                        if candidate is not None
-                        else {},
-                        memory_type=candidate.type.value if candidate is not None else None,
-                        subject=candidate.subject if candidate is not None else None,
-                        key=candidate.key if candidate is not None else None,
-                        evidence_quote=candidate.evidence_quote if candidate is not None else None,
-                        status=decision.status,
-                        promotion_score=decision.promotion_score,
-                        rejection_reason=decision.rejection_reason,
-                        created_at=now,
-                        updated_at=now,
-                    )
-                )
-                if not decision.should_promote or candidate is None:
-                    continue
-                embedding = await self._embedding_provider.embed(
-                    embedding_text_for_candidate(candidate)
-                )
                 apply_outcome = await self._store.apply_candidate(
                     scope=scope,
                     candidate=candidate,
@@ -223,12 +230,11 @@ class WriteService:
                 if job_id is not None:
                     graph_jobs.append(job_id)
             except Exception as exc:
-                if stage_id is not None:
-                    await self._store.update_candidate_stage(
-                        stage_id,
-                        status=CandidateStageStatus.FAILED,
-                        rejection_reason=f"extraction:{type(exc).__name__}",
-                    )
+                await self._store.update_candidate_stage(
+                    stage_id,
+                    status=CandidateStageStatus.FAILED,
+                    rejection_reason=f"extraction:{type(exc).__name__}",
+                )
                 raise
         return ExtractionOutcome(
             created_memory_version_ids=created,

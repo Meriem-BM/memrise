@@ -214,28 +214,49 @@ class QwenCompletionProvider(CompletionProvider):
         raise ValueError(msg) from last_error
 
 
+# DashScope text-embedding-v4 accepts at most this many inputs per request.
+_EMBED_BATCH_LIMIT = 10
+
+
 class QwenEmbeddingProvider(EmbeddingProvider):
     def __init__(self, settings: MemorySettings) -> None:
         self._settings = settings
         self._client = _client_from_settings(settings)
 
     async def embed(self, text: str) -> EmbeddingVector:
+        vectors = await self._embed_batch([text])
+        return vectors[0]
+
+    async def embed_many(self, texts: list[str]) -> list[EmbeddingVector]:
+        if not texts:
+            return []
+        vectors: list[EmbeddingVector] = []
+        for start in range(0, len(texts), _EMBED_BATCH_LIMIT):
+            vectors.extend(await self._embed_batch(texts[start : start + _EMBED_BATCH_LIMIT]))
+        return vectors
+
+    async def _embed_batch(self, texts: list[str]) -> list[EmbeddingVector]:
         client = _require_client(self._client)
         try:
             response = await client.embeddings.create(
                 model=self._settings.qwen_embedding_model,
-                input=text,
+                input=texts,
                 dimensions=self._settings.qwen_embedding_dimensions,
                 encoding_format="float",
             )
         except AuthenticationError as exc:
             msg = "Qwen embedding authentication failed; verify ALIBABA_CLOUD_API_KEY"
             raise QwenProviderError(msg) from exc
-        return EmbeddingVector(
-            values=list(response.data[0].embedding),
-            model=self._settings.qwen_embedding_model,
-            dimensions=self._settings.qwen_embedding_dimensions,
-        )
+        # The API preserves input order, but sort by index defensively.
+        ordered = sorted(response.data, key=lambda item: item.index)
+        return [
+            EmbeddingVector(
+                values=list(item.embedding),
+                model=self._settings.qwen_embedding_model,
+                dimensions=self._settings.qwen_embedding_dimensions,
+            )
+            for item in ordered
+        ]
 
 
 def _client_from_settings(settings: MemorySettings) -> AsyncOpenAI | None:

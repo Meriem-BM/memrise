@@ -102,9 +102,21 @@ MOCK_EMBEDDING_MODEL = "mock-embedding"
 @dataclass
 class MockEmbeddingProvider(EmbeddingProvider):
     vector: list[float] = field(default_factory=lambda: [0.1, 0.2, 0.3])
+    embed_calls: int = 0
+    embed_many_calls: int = 0
+    embedded_texts: list[str] = field(default_factory=list)
 
     async def embed(self, text: str) -> EmbeddingVector:
-        del text
+        self.embed_calls += 1
+        self.embedded_texts.append(text)
+        return self._vector()
+
+    async def embed_many(self, texts: list[str]) -> list[EmbeddingVector]:
+        self.embed_many_calls += 1
+        self.embedded_texts.extend(texts)
+        return [self._vector() for _ in texts]
+
+    def _vector(self) -> EmbeddingVector:
         return EmbeddingVector(
             values=list(self.vector),
             model=MOCK_EMBEDDING_MODEL,
