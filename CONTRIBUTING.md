@@ -8,7 +8,13 @@ Thanks for helping build Memrise. This guide covers how the codebase is organize
 make bootstrap                                  # install deps + configure .githooks/
 docker compose -f infra/compose.yaml up -d postgres
 make migrate                                    # apply Alembic migrations
-make dev                                         # API + worker + inspector
+make dev                                         # everything in Docker (API + worker + inspector)
+```
+
+Or run the apps on the host with hot reload (Postgres stays in Docker); this brings up Postgres, applies migrations, then starts the API, worker, and web (`http://localhost:3000`):
+
+```bash
+make dev-local
 ```
 
 Copy `.env.example` to `.env` and set `ALIBABA_CLOUD_API_KEY`, the Qwen adapter is required for capture, remember, retrieve, and respond (there is no in-app model fallback). If hooks ever fall out of sync, reinstall them with `make install-hooks`.
