@@ -1,7 +1,14 @@
 import json
 from pathlib import Path
 
-from openai import AsyncOpenAI, AuthenticationError
+from openai import (
+    APIStatusError,
+    AsyncOpenAI,
+    AuthenticationError,
+    OpenAIError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -53,9 +60,8 @@ class QwenCompletionProvider(CompletionProvider):
         client = _require_client(self._client)
         try:
             return await self._extract_memories(client, text, context)
-        except AuthenticationError as exc:
-            msg = "Qwen completion authentication failed; verify ALIBABA_CLOUD_API_KEY"
-            raise QwenProviderError(msg) from exc
+        except OpenAIError as exc:
+            raise _provider_error(exc, "extraction") from exc
 
     async def _extract_memories(
         self,
@@ -96,9 +102,8 @@ class QwenCompletionProvider(CompletionProvider):
                 model_cls=_JudgeVerdicts,
                 task_label="duplicate_judge",
             )
-        except AuthenticationError as exc:
-            msg = "Qwen duplicate-judge authentication failed; verify ALIBABA_CLOUD_API_KEY"
-            raise QwenProviderError(msg) from exc
+        except OpenAIError as exc:
+            raise _provider_error(exc, "duplicate judging") from exc
         return DuplicateJudgementResult(
             verdicts=parsed.verdicts,
             model_name=self._settings.qwen_memory_model,
@@ -125,9 +130,8 @@ class QwenCompletionProvider(CompletionProvider):
                 model_cls=ConsolidationResult,
                 task_label="consolidation",
             )
-        except AuthenticationError as exc:
-            msg = "Qwen consolidation authentication failed; verify ALIBABA_CLOUD_API_KEY"
-            raise QwenProviderError(msg) from exc
+        except OpenAIError as exc:
+            raise _provider_error(exc, "consolidation") from exc
         return parsed.model_copy(
             update={
                 "schema_version": CONSOLIDATION_PROMPT_VERSION,
@@ -162,9 +166,8 @@ class QwenCompletionProvider(CompletionProvider):
                     },
                 ],
             )
-        except AuthenticationError as exc:
-            msg = "Qwen answer authentication failed; verify ALIBABA_CLOUD_API_KEY"
-            raise QwenProviderError(msg) from exc
+        except OpenAIError as exc:
+            raise _provider_error(exc, "answer") from exc
         answer = (completion.choices[0].message.content or "").strip()
         return AnswerResult(
             answer=answer or "I could not produce an answer from the retrieved memory.",
@@ -244,9 +247,8 @@ class QwenEmbeddingProvider(EmbeddingProvider):
                 dimensions=self._settings.qwen_embedding_dimensions,
                 encoding_format="float",
             )
-        except AuthenticationError as exc:
-            msg = "Qwen embedding authentication failed; verify ALIBABA_CLOUD_API_KEY"
-            raise QwenProviderError(msg) from exc
+        except OpenAIError as exc:
+            raise _provider_error(exc, "embedding") from exc
         # The API preserves input order, but sort by index defensively.
         ordered = sorted(response.data, key=lambda item: item.index)
         return [
@@ -284,6 +286,21 @@ def schema_pack_context(packs: list[GraphSchemaPack]) -> list[dict[str, object]]
         }
         for pack in packs
     ]
+
+
+def _provider_error(exc: OpenAIError, task: str) -> QwenProviderError:
+    if isinstance(exc, AuthenticationError):
+        return QwenProviderError(f"Qwen {task} authentication failed; verify ALIBABA_CLOUD_API_KEY")
+    if isinstance(exc, PermissionDeniedError):
+        return QwenProviderError(
+            f"Qwen {task} denied: likely an exhausted quota or plan limit; "
+            "check your Alibaba Cloud Model Studio billing"
+        )
+    if isinstance(exc, RateLimitError):
+        return QwenProviderError(f"Qwen {task} rate limit exceeded; retry shortly")
+    if isinstance(exc, APIStatusError):
+        return QwenProviderError(f"Qwen {task} failed with status {exc.status_code}")
+    return QwenProviderError(f"Qwen {task} is unavailable")
 
 
 def _require_client(client: AsyncOpenAI | None) -> AsyncOpenAI:
