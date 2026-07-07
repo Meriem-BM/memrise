@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/logo.png" alt="Memrise" width="88" />
+  <img src="docs/logo.png" alt="Memrise" width="240" />
 </p>
-
-<h1 align="center">Memrise</h1>
 
 <p align="center">
   <b>Capture experience, recall what matters, forget what's stale</b>, so your agents get sharper every session.

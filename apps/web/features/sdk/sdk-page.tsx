@@ -30,12 +30,11 @@ export function SdkPage({ highlighted }: { highlighted: Record<string, string> }
       {/* Hero */}
       <section className="pt-16 pb-10 text-center sm:pt-24">
         <h1 className="mx-auto max-w-3xl text-balance text-5xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl">
-          Give your agent a memory
-          <span className="text-white/30"> that actually sticks.</span>
+          Give your agent a memory that
+          <span className="text-white/30"> remembers, forgets, and learns.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-          Capture what happens, recall what matters, and let it learn over time. A few calls, and
-          your agent stops forgetting.
+          Capture what matters, forget the noise, keep learning. In a few calls.
         </p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
           <Link
