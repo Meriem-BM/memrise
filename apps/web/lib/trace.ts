@@ -7,6 +7,7 @@ export type TraceStep = {
   label: string;
   decision: TraceDecision;
   reasonCode?: string;
+  error?: string;
   score?: number;
   detail?: unknown;
   href?: string;
@@ -53,7 +54,7 @@ export function buildCaptureTrace(input: {
     id: job.id,
     label: `Extraction job · ${job.status}`,
     decision: job.status === "completed" ? "ok" : job.status === "failed" ? "failed" : "pending",
-    reasonCode: job.last_error ?? undefined,
+    error: job.status === "failed" ? (job.last_error ?? undefined) : undefined,
     detail: job,
   }));
 

@@ -2,6 +2,7 @@
 
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 
+import { ErrorNote } from "@/components/trace/error-note";
 import { PipelineTrace } from "@/components/trace/pipeline-trace";
 import { ScoreBar } from "@/components/trace/score-bar";
 import type { ConsoleEntry } from "@/lib/console";
@@ -32,7 +33,7 @@ export function TracePanel({
             {turn.answer.status === "pending" ? (
               <p className="mt-2 text-sm text-muted">asking Qwen…</p>
             ) : turn.answer.status === "error" ? (
-              <p className="mt-2 text-sm text-danger">{turn.answer.error}</p>
+              <ErrorNote className="mt-2" message={turn.answer.error ?? "Answer failed."} />
             ) : (
               <div className="mt-2 rounded-lg border border-border bg-panel p-3">
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{turn.answer.text}</p>
@@ -49,7 +50,7 @@ export function TracePanel({
             {turn.recall.status === "pending" ? (
               <p className="mt-2 text-sm text-muted">retrieving…</p>
             ) : turn.recall.status === "error" ? (
-              <p className="mt-2 text-sm text-danger">{turn.recall.error}</p>
+              <ErrorNote className="mt-2" message={turn.recall.error ?? "Recall failed."} />
             ) : turn.recall.skipped ? (
               <p className="mt-2 text-sm text-muted">Memrise was off for this turn.</p>
             ) : (turn.recall.rows?.length ?? 0) === 0 ? (
@@ -122,7 +123,7 @@ export function TracePanel({
             {turn.learn.status === "pending" ? (
               <p className="mt-2 text-sm text-muted">extracting…</p>
             ) : turn.learn.status === "error" ? (
-              <p className="mt-2 text-sm text-danger">{turn.learn.error}</p>
+              <ErrorNote className="mt-2" message={turn.learn.error ?? "Extraction failed."} />
             ) : turn.learn.skipped && !turn.memoryEnabled ? (
               <p className="mt-2 text-sm text-muted">Memrise was off for this turn.</p>
             ) : (

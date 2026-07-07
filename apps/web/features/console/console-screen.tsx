@@ -4,6 +4,7 @@ import { Loader2, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ClientOnly } from "@/components/client-only";
+import { ErrorNote } from "@/components/trace/error-note";
 import { GraphPanel } from "@/features/console/graph-panel";
 import { TracePanel } from "@/features/console/trace-panel";
 import { turnSummary } from "@/lib/console";
@@ -142,15 +143,15 @@ export function ConsoleScreen() {
                 <p className="mt-1 text-xs text-muted">
                   {turnSummary(entry.answer, entry.recall, entry.learn)}
                 </p>
-                {entry.answer.error ? (
-                  <p className="mt-1 text-xs text-danger">{entry.answer.error}</p>
-                ) : null}
-                {entry.recall.error ? (
-                  <p className="mt-1 text-xs text-danger">{entry.recall.error}</p>
-                ) : null}
-                {entry.learn.error ? (
-                  <p className="mt-1 text-xs text-danger">{entry.learn.error}</p>
-                ) : null}
+                {[
+                  ...new Set(
+                    [entry.answer.error, entry.recall.error, entry.learn.error].filter(
+                      (message): message is string => Boolean(message),
+                    ),
+                  ),
+                ].map((message) => (
+                  <ErrorNote key={message} className="mt-2" message={message} />
+                ))}
               </button>
             ),
           )}

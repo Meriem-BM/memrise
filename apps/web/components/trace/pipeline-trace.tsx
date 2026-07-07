@@ -4,6 +4,7 @@ import { CheckCircle2, ChevronDown, Circle, Loader2, XCircle } from "lucide-reac
 import Link from "next/link";
 import { useState } from "react";
 
+import { ErrorNote } from "@/components/trace/error-note";
 import { ReasonBadge } from "@/components/trace/reason-badge";
 import { ScoreBar } from "@/components/trace/score-bar";
 import type { TraceStep } from "@/lib/trace";
@@ -54,6 +55,7 @@ function TraceRow({ step }: { step: TraceStep }) {
           </button>
         ) : null}
       </div>
+      {step.error ? <ErrorNote className="mt-2" message={step.error} /> : null}
       {step.score !== undefined ? (
         <div className="mt-2">
           <ScoreBar label="promotion" value={step.score} />
