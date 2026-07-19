@@ -149,8 +149,9 @@ flowchart TB
   F --> C4[Semantic<br/>pgvector cosine]
   F --> C5[Graph traversal<br/>Apache AGE · gated]
 
-  C2 & C3 & C4 & C5 --> RRF[Reciprocal Rank Fusion<br/>k = 60]
-  RRF --> RANK[Utility-aware ranking<br/>+ usefulness·0.12 + confidence·0.08<br/>+ scope specificity + task match<br/>− contested penalty]
+  C2 & C3 & C4 & C5 --> RRF[Weighted normalized RRF<br/>k = 60]
+  RRF --> RR[Optional bounded reranker<br/>top 30 candidates]
+  RR --> RANK[Relevance-first ranking<br/>+ bounded usefulness + confidence<br/>+ scope specificity + task match<br/>− contested penalty]
 
   C1 --> RES[Reserve critical budget<br/>20% of tokens · ≤ 3 facts]
   RES --> PACK
@@ -165,31 +166,37 @@ flowchart TB
 | --------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Critical lookup**   | Bounded SQL query over active `must_include` memories                                                  | Reserves space for non-negotiable constraints even when query overlap is weak.                                                             |
 | **Structured match**  | Bounded SQL `LIKE` over normalized `subject` and `key`                                                 | Finds identifier-like memories before looser text matching.                                                                                |
-| **Lexical / keyword** | PostgreSQL full-text search: generated `tsvector`, `websearch_to_tsquery`, `ts_rank`, GIN index        | Finds exact words and phrases such as names, flags, versions, and package names.                                                           |
-| **Semantic**          | Qwen `text-embedding-v4` embeddings, 1024 dimensions, stored in pgvector with HNSW `vector_cosine_ops` | Finds memories with similar meaning; retrieval orders by cosine distance and converts distance into similarity.                            |
+| **Lexical / keyword** | `pg_textsearch` BM25 over memory content and extractor-provided search text                            | Finds and relevance-ranks exact terms such as names, flags, versions, and package names.                                                   |
+| **Semantic**          | Qwen `text-embedding-v4` embeddings, 1024 dimensions, stored in pgvector with HNSW `vector_cosine_ops` | Finds memories with similar meaning; filtered HNSW uses configurable iterative scans and `ef_search`.                                      |
 | **Graph**             | Apache AGE inside PostgreSQL, projected from accepted graph claims                                     | Finds related facts through entity/relation traversal; runs only when graph retrieval is useful and available, with clamped 1-2 hop paths. |
 
 The channels are intentionally different: keyword finds the same words, semantic finds similar meaning, and graph finds related facts connected through entities and relations.
 
-**Reciprocal Rank Fusion** (`RRF_K = 60`) combines the ranked channel outputs without needing to normalize incomparable score scales. Memrise does not average raw lexical, semantic, and graph scores directly; each channel contributes by rank:
+**Weighted Reciprocal Rank Fusion** (`RRF_K = 60`) combines the ranked channel outputs without averaging incomparable raw scores. Structured and lexical channels receive small identifier-oriented weights, and the result is normalized against the best possible per-channel score so later utility signals cannot overwhelm relevance merely because reciprocal ranks are numerically small:
 
 ```text
-rrf_score(memory) = sum(1 / (60 + channel_rank))
+rrf_score(memory) =
+  sum(channel_weight / (60 + channel_rank))
+  / sum(channel_weight / 61)
 ```
 
-**Utility-aware ranking** then adds memory-quality signals on top of the fused retrieval score:
+An optional Qwen reranker can reorder the top 30 fused candidates before final ranking. It is disabled by default because it adds model latency and cost. It never expands the candidate set or bypasses scope and lifecycle filters.
+
+**Relevance-first ranking** then adds bounded memory-quality signals on top of the normalized retrieval score:
 
 ```text
 final_score =
   rrf_score
-  + usefulness_score * 0.12
-  + confidence * 0.08
+  + usefulness_score * 0.04
+  + confidence * 0.03
   + scope_specificity
   + task_match_boost
   - contested_penalty
 ```
 
-`scope_specificity` gives user-scoped memories `+0.05` and project-scoped memories `+0.08`; `task_match_boost` is `+0.05`; `contested_penalty` is `−0.04`. Outcome feedback changes usefulness only, so helpful memories rise in future ranking without rewriting their factual content.
+`scope_specificity` gives user-scoped memories `+0.01` and project-scoped memories `+0.02`; `task_match_boost` is `+0.02`; `contested_penalty` is `−0.02`. Semantic candidates below `0.20` similarity are discarded as channel noise. Outcome feedback changes usefulness only, so helpful memories rise in future ranking without rewriting their factual content.
+
+The labeled 120-query quality gate and filtered-HNSW benchmark are documented in [`docs/retrieval-evaluation.md`](docs/retrieval-evaluation.md). The database benchmark compares HNSW profiles to exact pgvector neighbors, records Recall@k and p50/p95 latency, captures `EXPLAIN ANALYZE`, and recommends a pgvectorscale trial only after the corpus and performance thresholds justify it.
 
 **Critical reservation + packing** is the answer to "recall critical memories within a limited context window." Before normal results are packed, `_select_critical` reserves **20% of the token budget** (`token_budget × 0.2`) for up to **3** `must_include` memories, ranked by query relevance. The greedy packer then emits **critical first**, then ranked normal memories, stopping at the budget. So even at a tiny budget, the non-negotiable constraints make it into context.
 
