@@ -46,9 +46,13 @@ class PostgresMemoryRepository:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         apply_service: MemoryApplyService,
+        hnsw_iterative_scan: str = "relaxed_order",
+        hnsw_ef_search: int = 100,
     ) -> None:
         self._session_factory = session_factory
         self._apply_service = apply_service
+        self._hnsw_iterative_scan = hnsw_iterative_scan
+        self._hnsw_ef_search = hnsw_ef_search
 
     async def list_active_memories(
         self,
@@ -249,7 +253,12 @@ class PostgresMemoryRepository:
     ) -> list[tuple[CanonicalMemory, float]]:
         async with self._session_factory() as session:
             return await search_semantic_in_session(
-                session, scope=scope, embedding=embedding, limit=limit
+                session,
+                scope=scope,
+                embedding=embedding,
+                limit=limit,
+                iterative_scan=self._hnsw_iterative_scan,
+                ef_search=self._hnsw_ef_search,
             )
 
     async def list_memory_history(self, memory_id: str) -> list[CanonicalMemory]:

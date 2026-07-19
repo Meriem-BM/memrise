@@ -37,6 +37,8 @@ class PostgresMemoryStore:
         session_factory: async_sessionmaker[AsyncSession],
         *,
         id_generator: IdGenerator,
+        hnsw_iterative_scan: str = "relaxed_order",
+        hnsw_ef_search: int = 100,
     ) -> None:
         apply_service = MemoryApplyService(
             reconciler=Reconciler(),
@@ -44,7 +46,12 @@ class PostgresMemoryStore:
             id_generator=id_generator,
         )
         self._episodes = PostgresEpisodeRepository(session_factory)
-        self._memories = PostgresMemoryRepository(session_factory, apply_service=apply_service)
+        self._memories = PostgresMemoryRepository(
+            session_factory,
+            apply_service=apply_service,
+            hnsw_iterative_scan=hnsw_iterative_scan,
+            hnsw_ef_search=hnsw_ef_search,
+        )
         self._candidates = PostgresCandidateRepository(session_factory)
         self._retrievals = PostgresRetrievalRepository(session_factory, apply_service=apply_service)
         self._graph_projection = PostgresGraphProjectionRepository(
