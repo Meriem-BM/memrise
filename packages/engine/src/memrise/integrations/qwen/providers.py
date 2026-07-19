@@ -23,6 +23,10 @@ from memrise.ports.providers import (
     EmbeddingProvider,
     EmbeddingVector,
     ExtractionResult,
+    RerankCandidate,
+    Reranker,
+    RerankerError,
+    RerankResult,
 )
 from memrise.runtime.settings import MemorySettings
 
@@ -31,12 +35,82 @@ MEMORY_EXTRACTION_PROMPT_VERSION = "memory_extraction_v1"
 CONSOLIDATION_PROMPT_VERSION = "consolidation_v1"
 AGENT_ANSWER_PROMPT_VERSION = "agent_answer_v1"
 DUPLICATE_JUDGE_PROMPT_VERSION = "duplicate_judge_v1"
+MEMORY_RERANK_PROMPT_VERSION = "memory_rerank_v1"
 
 
 class _JudgeVerdicts(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     verdicts: list[DuplicateVerdict] = Field(default_factory=list, max_length=200)
+
+
+class _RerankOrder(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ordered_memory_version_ids: list[str] = Field(default_factory=list, max_length=100)
+
+
+class QwenMemoryReranker(Reranker):
+    """Optional bounded precision stage over candidates already recalled."""
+
+    def __init__(self, settings: MemorySettings) -> None:
+        self._settings = settings
+        self._client = _client_from_settings(settings)
+        self._prompt = (PROMPT_DIR / f"{MEMORY_RERANK_PROMPT_VERSION}.md").read_text(
+            encoding="utf-8"
+        )
+
+    async def rerank(
+        self,
+        *,
+        query: str,
+        candidates: list[RerankCandidate],
+    ) -> RerankResult:
+        if not candidates:
+            return RerankResult(
+                ordered_memory_version_ids=[],
+                model_name=self._settings.qwen_memory_model,
+            )
+        try:
+            client = _require_client(self._client)
+            completion = await client.chat.completions.create(
+                model=self._settings.qwen_memory_model,
+                messages=[
+                    {"role": "system", "content": self._prompt},
+                    {
+                        "role": "user",
+                        "content": json.dumps(
+                            {
+                                "query": query,
+                                "candidates": [candidate.model_dump() for candidate in candidates],
+                            },
+                            ensure_ascii=False,
+                        ),
+                    },
+                ],
+                response_format={"type": "json_object"},
+            )
+            parsed = _RerankOrder.model_validate_json(completion.choices[0].message.content or "{}")
+        except (OpenAIError, QwenProviderError) as exc:
+            raise RerankerError("Qwen memory reranking is unavailable") from exc
+        except ValidationError as exc:
+            raise RerankerError("Qwen memory reranking returned invalid JSON") from exc
+        allowed = {candidate.memory_version_id for candidate in candidates}
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for version_id in parsed.ordered_memory_version_ids:
+            if version_id in allowed and version_id not in seen:
+                ordered.append(version_id)
+                seen.add(version_id)
+        ordered.extend(
+            candidate.memory_version_id
+            for candidate in candidates
+            if candidate.memory_version_id not in seen
+        )
+        return RerankResult(
+            ordered_memory_version_ids=ordered,
+            model_name=self._settings.qwen_memory_model,
+        )
 
 
 class QwenCompletionProvider(CompletionProvider):
