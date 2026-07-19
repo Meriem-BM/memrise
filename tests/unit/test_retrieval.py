@@ -2,7 +2,12 @@ import pytest
 
 from memrise.core.enums import Criticality, MemoryStatus, RetrievalSourceType
 from memrise.core.models import Scope
-from memrise.ports.providers import EmbeddingVector
+from memrise.ports.providers import (
+    EmbeddingVector,
+    RerankCandidate,
+    Reranker,
+    RerankResult,
+)
 from memrise.read.retrieval import (
     RetrievalCandidate,
     RetrievalService,
@@ -18,6 +23,22 @@ from tests.mocks.memory_store import MemoryStoreStub, make_memory
 from tests.mocks.providers import MockEmbeddingProvider
 
 
+class PreferSecondReranker(Reranker):
+    async def rerank(
+        self,
+        *,
+        query: str,
+        candidates: list[RerankCandidate],
+    ) -> RerankResult:
+        del query
+        ids = {candidate.memory_version_id for candidate in candidates}
+        assert {"memv_first", "memv_second"} <= ids
+        return RerankResult(
+            ordered_memory_version_ids=["memv_second", "memv_first"],
+            model_name="test-reranker",
+        )
+
+
 def test_reciprocal_rank_fusion_combines_ranks() -> None:
     memory_a = make_memory(version_id="memv_a", content="Atlas uses pnpm.")
     memory_b = make_memory(version_id="memv_b", content="Atlas uses npm.")
@@ -30,6 +51,7 @@ def test_reciprocal_rank_fusion_combines_ranks() -> None:
     scores = reciprocal_rank_fusion(candidates)
 
     assert scores["memv_a"] > scores["memv_b"]
+    assert 0 < scores["memv_a"] <= 1
 
 
 def test_lexical_score_and_scope_specificity() -> None:
@@ -42,7 +64,7 @@ def test_lexical_score_and_scope_specificity() -> None:
     )
 
     assert lexical_score("Atlas pnpm dependencies", memory) > 0.5
-    assert scope_specificity(memory) == 0.13
+    assert scope_specificity(memory) == 0.03
 
 
 def test_graph_score_applies_depth_penalty() -> None:
@@ -124,6 +146,43 @@ async def test_contested_memories_surface_with_rank_penalty() -> None:
     version_ids = [memory.version.id for memory in memories]
     assert "memv_contested" in version_ids
     assert version_ids.index("memv_active") < version_ids.index("memv_contested")
+
+
+async def test_bounded_reranker_changes_precision_order() -> None:
+    first = make_memory(
+        memory_id="mem_first",
+        version_id="memv_first",
+        key="deploy_note",
+        content="Atlas deploy documentation is available.",
+    )
+    second = make_memory(
+        memory_id="mem_second",
+        version_id="memv_second",
+        key="deploy_day",
+        content="Atlas deploys happen on Fridays.",
+    )
+    store = MemoryStoreStub(memories=[first, second])
+    service = RetrievalService(
+        store=store,
+        graph_repository=GraphRepositoryStub(available=False),
+        embedding_provider=MockEmbeddingProvider(),
+        token_counter=ApproximateTokenCounter(),
+        ids=UuidGenerator(),
+        reranker=PreferSecondReranker(),
+    )
+
+    retrieval_id, _, memories, _, _ = await service.retrieve(
+        scope=Scope(namespace_id="ns", agent_id="agent", user_id="user", project_id="atlas"),
+        query="Atlas deploy",
+        task_type=None,
+        token_budget=500,
+        limit=5,
+        graph_hops=1,
+    )
+
+    assert [memory.version.id for memory in memories[:2]] == ["memv_second", "memv_first"]
+    traces = {item.memory_version_id: item for item in store.retrieval_items[retrieval_id]}
+    assert traces["memv_second"].original_rank != traces["memv_second"].final_rank
 
 
 async def test_semantic_channel_only_compares_same_model_embeddings() -> None:

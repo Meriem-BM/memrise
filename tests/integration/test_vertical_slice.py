@@ -18,10 +18,19 @@ pytestmark = pytest.mark.asyncio
 async def test_pgvector_extension_and_indexes_exist() -> None:
     engine = create_async_engine(database_url())
     async with engine.connect() as connection:
-        extension = await connection.scalar(
-            text("select extname from pg_extension where extname = 'vector'")
+        extensions = (
+            (
+                await connection.execute(
+                    text(
+                        "select extname from pg_extension "
+                        "where extname in ('vector', 'pg_textsearch')"
+                    )
+                )
+            )
+            .scalars()
+            .all()
         )
-        assert extension == "vector"
+        assert {"vector", "pg_textsearch"} <= set(extensions)
         indexes = (
             (
                 await connection.execute(
@@ -32,6 +41,7 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
                         ") "
                         "and indexname in ("
                         "'ix_memory_versions_embedding_hnsw',"
+                        "'ix_memory_versions_lexical_bm25',"
                         "'ix_memory_versions_search_gin',"
                         "'ix_jobs_claim',"
                         "'ix_memory_candidates_episode',"
@@ -47,6 +57,7 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
         )
         assert {
             "ix_memory_versions_embedding_hnsw",
+            "ix_memory_versions_lexical_bm25",
             "ix_memory_versions_search_gin",
             "ix_jobs_claim",
             "ix_memory_candidates_episode",
@@ -54,6 +65,32 @@ async def test_pgvector_extension_and_indexes_exist() -> None:
             "uq_memories_logical_identity",
             "uq_memory_versions_version_number",
         } <= set(indexes)
+    await engine.dispose()
+
+
+async def test_pg_textsearch_ranks_keyword_matches() -> None:
+    engine = create_async_engine(database_url())
+    async with engine.begin() as connection:
+        await connection.execute(
+            text("create temporary table bm25_probe (id integer primary key, content text)")
+        )
+        await connection.execute(
+            text(
+                "insert into bm25_probe (id, content) values "
+                "(1, 'Atlas dependency manager pnpm'), "
+                "(2, 'Atlas deploy calendar Friday')"
+            )
+        )
+        await connection.execute(
+            text(
+                "create index bm25_probe_idx on bm25_probe "
+                "using bm25 (content) with (text_config='english')"
+            )
+        )
+        top_id = await connection.scalar(
+            text("select id from bm25_probe order by content <@> 'dependency manager' limit 1")
+        )
+        assert top_id == 1
     await engine.dispose()
 
 
