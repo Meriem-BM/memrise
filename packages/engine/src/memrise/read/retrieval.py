@@ -12,19 +12,21 @@ from memrise.graph.retrieval import GraphTraversalService, should_use_graph_retr
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
 from memrise.ports.ids import IdGenerator
-from memrise.ports.providers import EmbeddingProvider, TokenCounter
+from memrise.ports.providers import (
+    EmbeddingProvider,
+    RerankCandidate,
+    Reranker,
+    RerankerError,
+    TokenCounter,
+)
 from memrise.ports.repositories import MemoryStore
 from memrise.read.query_embedding_cache import QueryEmbeddingCache
+from memrise.read.ranking import RankingConfig, normalized_rrf_score
 
-RRF_K = 60
-# Contested memories stay retrievable but rank below equally scored active ones.
-CONTESTED_RANK_PENALTY = 0.04
 # Per-channel candidate cap for the SQL-backed lexical and semantic searches.
 CHANNEL_LIMIT = 50
 # Bounded pool of must_include memories considered for the critical reservation.
 CRITICAL_CHANNEL_LIMIT = 20
-# Ranking boost for memories whose declared applicability matches the task.
-TASK_MATCH_BOOST = 0.05
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,11 +38,21 @@ class RetrievalCandidate:
     graph_edge_id: str | None = None
 
 
-def reciprocal_rank_fusion(candidates: list[RetrievalCandidate]) -> dict[str, float]:
-    scores: dict[str, float] = defaultdict(float)
+def reciprocal_rank_fusion(
+    candidates: list[RetrievalCandidate],
+    *,
+    config: RankingConfig | None = None,
+) -> dict[str, float]:
+    ranking = config or RankingConfig()
+    sources_by_version: dict[str, list[tuple[RetrievalSourceType, int]]] = defaultdict(list)
     for candidate in candidates:
-        scores[candidate.memory.version.id] += 1.0 / (RRF_K + candidate.rank)
-    return dict(scores)
+        sources_by_version[candidate.memory.version.id].append(
+            (candidate.source_type, candidate.rank)
+        )
+    return {
+        version_id: normalized_rrf_score(sources, config=ranking)
+        for version_id, sources in sources_by_version.items()
+    }
 
 
 def _term_overlap(query: str, text: str) -> float:
@@ -60,12 +72,17 @@ def structured_score(query: str, memory: CanonicalMemory) -> float:
     return _term_overlap(query, f"{memory.identity.subject} {memory.identity.key}")
 
 
-def scope_specificity(memory: CanonicalMemory) -> float:
+def scope_specificity(
+    memory: CanonicalMemory,
+    *,
+    config: RankingConfig | None = None,
+) -> float:
+    ranking = config or RankingConfig()
     score = 0.0
     if memory.identity.user_id is not None:
-        score += 0.05
+        score += ranking.user_scope_boost
     if memory.identity.project_id is not None:
-        score += 0.08
+        score += ranking.project_scope_boost
     return score
 
 
@@ -132,6 +149,8 @@ class RetrievalService:
         embedding_provider: EmbeddingProvider,
         token_counter: TokenCounter,
         ids: IdGenerator,
+        ranking_config: RankingConfig | None = None,
+        reranker: Reranker | None = None,
     ) -> None:
         self._store = store
         self._graph_repository = graph_repository
@@ -146,6 +165,8 @@ class RetrievalService:
         self._query_embeddings = QueryEmbeddingCache(embedding_provider)
         self._token_counter = token_counter
         self._ids = ids
+        self._ranking = ranking_config or RankingConfig()
+        self._reranker = reranker
 
     async def retrieve(
         self,
@@ -187,20 +208,35 @@ class RetrievalService:
             normal_pool_by_id.setdefault(candidate.memory.version.id, candidate.memory)
         normal_pool = list(normal_pool_by_id.values())
 
-        fused_scores = reciprocal_rank_fusion(lexical + structured + semantic + graph)
+        fused_scores = reciprocal_rank_fusion(
+            lexical + structured + semantic + graph,
+            config=self._ranking,
+        )
+        reranker_scores = await self._reranker_scores(
+            query=query,
+            pool=normal_pool,
+            fused_scores=fused_scores,
+        )
+        pre_rerank = sorted(
+            normal_pool,
+            key=lambda memory: self._ranking_score(
+                memory,
+                task_type=task_type,
+                fused_scores=fused_scores,
+                reranker_scores={},
+            ),
+            reverse=True,
+        )
+        original_rank_by_version = {
+            memory.version.id: rank for rank, memory in enumerate(pre_rerank, start=1)
+        }
         ranked = sorted(
             normal_pool,
-            key=lambda memory: (
-                fused_scores.get(memory.version.id, 0.0)
-                + memory.version.usefulness_score * 0.12
-                + memory.version.confidence * 0.08
-                + scope_specificity(memory)
-                + (TASK_MATCH_BOOST if task_type_matches(memory, task_type) else 0.0)
-                - (
-                    CONTESTED_RANK_PENALTY
-                    if memory.version.status == MemoryStatus.CONTESTED
-                    else 0.0
-                )
+            key=lambda memory: self._ranking_score(
+                memory,
+                task_type=task_type,
+                fused_scores=fused_scores,
+                reranker_scores=reranker_scores,
             ),
             reverse=True,
         )
@@ -232,7 +268,7 @@ class RetrievalService:
                         if candidate is not None
                         else RetrievalSourceType.LEXICAL
                     ),
-                    original_rank=rank,
+                    original_rank=original_rank_by_version[memory.version.id],
                     final_rank=rank,
                     lexical_score=lexical_scores.get(memory.version.id),
                     semantic_score=semantic_scores.get(memory.version.id),
@@ -250,6 +286,86 @@ class RetrievalService:
             memory for memory in selected if memory.version.criticality != Criticality.MUST_INCLUDE
         ]
         return retrieval_id, selected_critical, selected_normal, context, used_tokens
+
+    async def _reranker_scores(
+        self,
+        *,
+        query: str,
+        pool: list[CanonicalMemory],
+        fused_scores: dict[str, float],
+    ) -> dict[str, float]:
+        if self._reranker is None or not pool:
+            return {}
+        candidates = sorted(
+            pool,
+            key=lambda memory: fused_scores.get(memory.version.id, 0.0),
+            reverse=True,
+        )[: self._ranking.reranker_candidate_limit]
+        try:
+            result = await self._reranker.rerank(
+                query=query,
+                candidates=[
+                    RerankCandidate(
+                        memory_version_id=memory.version.id,
+                        subject=memory.identity.subject,
+                        key=memory.identity.key,
+                        content=memory.version.content,
+                    )
+                    for memory in candidates
+                ],
+            )
+        except RerankerError:
+            return {}
+        allowed = {memory.version.id for memory in candidates}
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for version_id in result.ordered_memory_version_ids:
+            if version_id in allowed and version_id not in seen:
+                ordered.append(version_id)
+                seen.add(version_id)
+        size = len(ordered)
+        if size == 0:
+            return {}
+        return {version_id: (size - index) / size for index, version_id in enumerate(ordered)}
+
+    def _relevance_score(
+        self,
+        version_id: str,
+        *,
+        fused_scores: dict[str, float],
+        reranker_scores: dict[str, float],
+    ) -> float:
+        fused = fused_scores.get(version_id, 0.0)
+        reranked = reranker_scores.get(version_id)
+        if reranked is None:
+            return fused
+        weight = self._ranking.reranker_weight
+        return fused * (1.0 - weight) + reranked * weight
+
+    def _ranking_score(
+        self,
+        memory: CanonicalMemory,
+        *,
+        task_type: str | None,
+        fused_scores: dict[str, float],
+        reranker_scores: dict[str, float],
+    ) -> float:
+        return (
+            self._relevance_score(
+                memory.version.id,
+                fused_scores=fused_scores,
+                reranker_scores=reranker_scores,
+            )
+            + memory.version.usefulness_score * self._ranking.usefulness_weight
+            + memory.version.confidence * self._ranking.confidence_weight
+            + scope_specificity(memory, config=self._ranking)
+            + (self._ranking.task_match_boost if task_type_matches(memory, task_type) else 0.0)
+            - (
+                self._ranking.contested_penalty
+                if memory.version.status == MemoryStatus.CONTESTED
+                else 0.0
+            )
+        )
 
     async def _critical_pool(
         self,
@@ -307,7 +423,15 @@ class RetrievalService:
         hits = await self._store.search_semantic(
             scope=scope, embedding=query_embedding, limit=CHANNEL_LIMIT
         )
-        return _channel_candidates(hits, source_type=RetrievalSourceType.SEMANTIC, admit=admit)
+        return _channel_candidates(
+            [
+                (memory, score)
+                for memory, score in hits
+                if score >= self._ranking.minimum_semantic_score
+            ],
+            source_type=RetrievalSourceType.SEMANTIC,
+            admit=admit,
+        )
 
     async def _graph_candidates(
         self,
