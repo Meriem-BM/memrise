@@ -11,6 +11,7 @@ test-results/
 .pyright/
 .turbo/
 .claude/
+.devin/
 __pycache__/
 uv.lock
 pnpm-lock.yaml
