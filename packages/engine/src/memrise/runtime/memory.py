@@ -24,10 +24,12 @@ from memrise.ports.providers import (
     EmbeddingProvider,
     ExtractedGraphRelation,
     ExtractedMemoryCandidate,
+    Reranker,
     TokenCounter,
 )
 from memrise.ports.repositories import FeedbackPolicy, JobQueue, MemoryStore
 from memrise.ports.schema_registry import GraphSchemaRegistry
+from memrise.read.ranking import RankingConfig
 from memrise.runtime.factory import build_runtime_services
 from memrise.runtime.mappers import (
     build_graph_neighborhood_response,
@@ -88,6 +90,8 @@ class Memrise:
         token_counter: TokenCounter,
         feedback_policy: FeedbackPolicy,
         usefulness_half_life_days: float = 30.0,
+        ranking_config: RankingConfig | None = None,
+        reranker: Reranker | None = None,
     ) -> None:
         self._store = store
         self._jobs = jobs
@@ -109,6 +113,8 @@ class Memrise:
             embedding_provider=embedding_provider,
             token_counter=token_counter,
             usefulness_half_life_days=usefulness_half_life_days,
+            ranking_config=ranking_config,
+            reranker=reranker,
         )
         self._write = services.write
         self._retrieval = services.retrieval
