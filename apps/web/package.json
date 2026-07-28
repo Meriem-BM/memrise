@@ -21,7 +21,7 @@
     "d3-force": "^3.0.0",
     "lucide-react": "1.23.0",
     "memrise-memory-sdk": "workspace:*",
-    "next": "16.2.10",
+    "next": "16.2.11",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-force-graph-2d": "^1.29.1",
