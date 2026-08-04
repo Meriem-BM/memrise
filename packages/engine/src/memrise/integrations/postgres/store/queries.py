@@ -392,21 +392,28 @@ async def search_lexical_in_session(
     query: str,
     limit: int,
 ) -> list[tuple[CanonicalMemory, float]]:
-    tsquery = func.websearch_to_tsquery("english", query)
-    rank = func.ts_rank(MemoryVersionRow.search_document, tsquery)
+    lexical_text = (
+        func.coalesce(MemoryVersionRow.content, "")
+        .op("||")(" ")
+        .op("||")(func.coalesce(MemoryVersionRow.search_text, ""))
+    )
+    bm25_query = func.to_bm25query(query, "ix_memory_versions_lexical_bm25")
+    rank = lexical_text.op("<@>")(bm25_query)
     rows = (
         await session.execute(
             select(MemoryRow, MemoryVersionRow, rank.label("rank"))
             .join(MemoryVersionRow, MemoryVersionRow.memory_id == MemoryRow.id)
             .where(
                 *_live_scope_filters(scope),
-                MemoryVersionRow.search_document.op("@@")(tsquery),
+                rank < 0,
             )
-            .order_by(rank.desc())
+            .order_by(rank.asc())
             .limit(limit)
         )
     ).all()
-    return [(canonical_from_rows(memory, version), float(score)) for memory, version, score in rows]
+    return [
+        (canonical_from_rows(memory, version), -float(score)) for memory, version, score in rows
+    ]
 
 
 async def search_semantic_in_session(
@@ -415,9 +422,17 @@ async def search_semantic_in_session(
     scope: Scope,
     embedding: EmbeddingVector,
     limit: int,
+    iterative_scan: str = "relaxed_order",
+    ef_search: int = 100,
 ) -> list[tuple[CanonicalMemory, float]]:
     if not embedding.values:
         return []
+    if iterative_scan not in {"off", "strict_order", "relaxed_order"}:
+        raise ValueError(f"unsupported HNSW iterative scan mode: {iterative_scan}")
+    if ef_search < 1:
+        raise ValueError("HNSW ef_search must be positive")
+    await session.execute(text(f"SET LOCAL hnsw.iterative_scan = '{iterative_scan}'"))
+    await session.execute(text(f"SET LOCAL hnsw.ef_search = {ef_search:d}"))
     distance = MemoryVersionRow.embedding.cosine_distance(embedding.values)
     rows = (
         await session.execute(

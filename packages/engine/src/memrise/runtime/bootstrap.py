@@ -7,8 +7,13 @@ from memrise.integrations.postgres import (
 )
 from memrise.integrations.postgres.store.graph_claims import PostgresGraphClaimStore
 from memrise.integrations.postgres.store.schema_registry import PostgresGraphSchemaRegistry
-from memrise.integrations.qwen.providers import QwenCompletionProvider, QwenEmbeddingProvider
+from memrise.integrations.qwen.providers import (
+    QwenCompletionProvider,
+    QwenEmbeddingProvider,
+    QwenMemoryReranker,
+)
 from memrise.learning.policy import DefaultFeedbackPolicy
+from memrise.read.ranking import RankingConfig
 from memrise.runtime.ids import UuidGenerator
 from memrise.runtime.memory import Memrise
 from memrise.runtime.settings import MemorySettings
@@ -22,7 +27,12 @@ def build_postgres_memory(settings: MemorySettings) -> Memrise:
 
     session_factory = make_session_factory(settings.database_url)
     id_generator = UuidGenerator()
-    store = PostgresMemoryStore(session_factory, id_generator=id_generator)
+    store = PostgresMemoryStore(
+        session_factory,
+        id_generator=id_generator,
+        hnsw_iterative_scan=settings.memrise_hnsw_iterative_scan,
+        hnsw_ef_search=settings.memrise_hnsw_ef_search,
+    )
     jobs = PostgresJobQueue(session_factory, id_generator=id_generator)
     graph_repository = AgeGraphRepository(
         session_factory,
@@ -56,4 +66,9 @@ def build_postgres_memory(settings: MemorySettings) -> Memrise:
         token_counter=ApproximateTokenCounter(),
         feedback_policy=DefaultFeedbackPolicy(),
         usefulness_half_life_days=settings.memrise_usefulness_half_life_days,
+        ranking_config=RankingConfig(
+            reranker_candidate_limit=settings.memrise_reranker_candidate_limit,
+            reranker_weight=settings.memrise_reranker_weight,
+        ),
+        reranker=QwenMemoryReranker(settings) if settings.memrise_reranker_enabled else None,
     )

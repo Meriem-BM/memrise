@@ -4,7 +4,7 @@
 UV_ENV ?=
 COMPOSE=docker compose -f infra/compose.yaml
 
-.PHONY: bootstrap install-hooks dev dev-local stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset postgres-up migrate migration export-openapi generate-sdk
+.PHONY: bootstrap install-hooks dev dev-local stop logs format format-check lint typecheck test test-integration test-e2e check build package-check db-reset postgres-up migrate migration export-openapi generate-sdk benchmark-retrieval
 
 bootstrap:
 	$(UV_ENV) uv sync --all-packages
@@ -66,6 +66,9 @@ test:
 test-integration:
 	$(UV_ENV) uv run pytest tests/integration tests/contract
 
+benchmark-retrieval:
+	$(UV_ENV) uv run python scripts/benchmark_retrieval.py
+
 test-e2e:
 	pnpm --filter @memrise/web test:e2e
 
@@ -99,5 +102,4 @@ export-openapi:
 generate-sdk: export-openapi
 	pnpm --filter memrise-memory-sdk generate
 	pnpm exec prettier --write packages/sdk-typescript/src/generated/api-types.ts --ignore-unknown
-
 

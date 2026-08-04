@@ -6,10 +6,11 @@ from memrise.graph.projection import GraphProjectionService, GraphRebuildService
 from memrise.learning.lifecycle import LifecycleService
 from memrise.ports.graph_repository import GraphRepository
 from memrise.ports.graph_store import GraphClaimStore
-from memrise.ports.providers import CompletionProvider, EmbeddingProvider, TokenCounter
+from memrise.ports.providers import CompletionProvider, EmbeddingProvider, Reranker, TokenCounter
 from memrise.ports.repositories import JobQueue, MemoryStore
 from memrise.ports.schema_registry import GraphSchemaRegistry
 from memrise.read.explanation import ExplanationService
+from memrise.read.ranking import RankingConfig
 from memrise.read.retrieval import RetrievalService
 from memrise.runtime.clock import SystemClock
 from memrise.runtime.ids import UuidGenerator
@@ -41,6 +42,8 @@ def build_runtime_services(
     completion_provider: CompletionProvider,
     embedding_provider: EmbeddingProvider,
     token_counter: TokenCounter,
+    ranking_config: RankingConfig | None = None,
+    reranker: Reranker | None = None,
     usefulness_half_life_days: float = 30.0,
 ) -> RuntimeServices:
     ids = UuidGenerator()
@@ -60,6 +63,8 @@ def build_runtime_services(
         embedding_provider=embedding_provider,
         token_counter=token_counter,
         ids=ids,
+        ranking_config=ranking_config,
+        reranker=reranker,
     )
     explain = ExplanationService(store, graph_repository=graph_repository)
     lifecycle = LifecycleService(

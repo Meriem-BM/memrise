@@ -2,6 +2,7 @@ FROM postgres:18-bookworm
 
 ARG PGVECTOR_VERSION=v0.8.4
 ARG AGE_REF=PG18/v1.7.0-rc0
+ARG PG_TEXTSEARCH_VERSION=v1.2.0
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -28,5 +29,14 @@ RUN git clone --branch "${AGE_REF}" --depth 1 https://github.com/apache/age.git 
     && make PG_CONFIG=/usr/lib/postgresql/18/bin/pg_config install \
     && rm -rf /tmp/age
 
+RUN git clone --branch "${PG_TEXTSEARCH_VERSION}" --depth 1 \
+        https://github.com/timescale/pg_textsearch.git /tmp/pg_textsearch \
+    && cd /tmp/pg_textsearch \
+    && make PG_CONFIG=/usr/lib/postgresql/18/bin/pg_config \
+    && make PG_CONFIG=/usr/lib/postgresql/18/bin/pg_config install \
+    && rm -rf /tmp/pg_textsearch
+
 COPY infra/pg-extensions.sh /docker-entrypoint-initdb.d/10-pg-extensions.sh
 RUN chmod +x /docker-entrypoint-initdb.d/10-pg-extensions.sh
+
+CMD ["postgres", "-c", "shared_preload_libraries=pg_textsearch"]

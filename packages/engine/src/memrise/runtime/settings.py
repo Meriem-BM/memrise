@@ -25,6 +25,30 @@ class MemorySettings(BaseSettings):
         default=30.0,
         alias="MEMRISE_USEFULNESS_HALF_LIFE_DAYS",
     )
+    memrise_reranker_enabled: bool = Field(default=False, alias="MEMRISE_RERANKER_ENABLED")
+    memrise_reranker_candidate_limit: int = Field(
+        default=30,
+        ge=1,
+        le=100,
+        alias="MEMRISE_RERANKER_CANDIDATE_LIMIT",
+    )
+    memrise_reranker_weight: float = Field(
+        default=0.35,
+        ge=0,
+        le=1,
+        alias="MEMRISE_RERANKER_WEIGHT",
+    )
+    memrise_hnsw_iterative_scan: str = Field(
+        default="relaxed_order",
+        pattern="^(off|strict_order|relaxed_order)$",
+        alias="MEMRISE_HNSW_ITERATIVE_SCAN",
+    )
+    memrise_hnsw_ef_search: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        alias="MEMRISE_HNSW_EF_SEARCH",
+    )
 
     alibaba_cloud_api_key: str | None = Field(default=None, alias="ALIBABA_CLOUD_API_KEY")
     alibaba_cloud_base_url: str = Field(

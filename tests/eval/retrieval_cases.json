@@ -1,0 +1,282 @@
+[
+  {
+    "id": "package_manager",
+    "subject": "Atlas",
+    "key": "package_manager",
+    "content": "Atlas uses pnpm for dependency installs.",
+    "queries": [
+      "Atlas package manager",
+      "install Atlas dependencies",
+      "pnpm setup for Atlas",
+      "which tool installs Atlas packages",
+      "dependency command for Atlas",
+      "how should Atlas modules be installed"
+    ]
+  },
+  {
+    "id": "deploy_day",
+    "subject": "Atlas",
+    "key": "deploy_day",
+    "content": "Atlas production deploys run on Fridays only.",
+    "queries": [
+      "Atlas deploy day",
+      "when does Atlas deploy",
+      "Friday production release",
+      "allowed release weekday",
+      "Atlas deployment schedule",
+      "which day can production ship"
+    ]
+  },
+  {
+    "id": "lockfile_rule",
+    "subject": "Atlas",
+    "key": "lockfile_rule",
+    "content": "Never edit the Atlas generated lockfile manually.",
+    "queries": [
+      "Atlas lockfile rule",
+      "can I edit the generated lockfile",
+      "manual lockfile changes",
+      "generated dependency lock policy",
+      "how to modify Atlas lock data",
+      "is hand editing the lockfile allowed"
+    ]
+  },
+  {
+    "id": "primary_region",
+    "subject": "Atlas",
+    "key": "primary_region",
+    "content": "Atlas runs in the eu-west-1 AWS region.",
+    "queries": [
+      "Atlas primary region",
+      "where is Atlas hosted",
+      "eu-west-1 deployment",
+      "Atlas AWS location",
+      "cloud region for Atlas",
+      "which datacenter region runs Atlas"
+    ]
+  },
+  {
+    "id": "database_engine",
+    "subject": "Atlas",
+    "key": "database_engine",
+    "content": "Atlas persists application data in PostgreSQL 18.",
+    "queries": [
+      "Atlas database",
+      "which datastore does Atlas use",
+      "PostgreSQL 18 persistence",
+      "Atlas storage engine",
+      "where is Atlas application data stored",
+      "database version for Atlas"
+    ]
+  },
+  {
+    "id": "api_version",
+    "subject": "AtlasAPI",
+    "key": "public_version",
+    "content": "The Atlas public API uses version v2.",
+    "queries": [
+      "Atlas API version",
+      "current public endpoint version",
+      "is Atlas API v2",
+      "public interface release",
+      "which Atlas API generation",
+      "version of external Atlas routes"
+    ]
+  },
+  {
+    "id": "request_timeout",
+    "subject": "AtlasAPI",
+    "key": "request_timeout",
+    "content": "Atlas API requests time out after 30 seconds.",
+    "queries": [
+      "Atlas request timeout",
+      "how long can an API request run",
+      "30 second API limit",
+      "request duration ceiling",
+      "when does Atlas abort calls",
+      "maximum endpoint execution time"
+    ]
+  },
+  {
+    "id": "retry_policy",
+    "subject": "AtlasAPI",
+    "key": "retry_policy",
+    "content": "Atlas retries transient upstream failures twice.",
+    "queries": [
+      "Atlas retry policy",
+      "number of upstream retries",
+      "transient failure attempts",
+      "does Atlas retry provider errors",
+      "two retry limit",
+      "upstream recovery behavior"
+    ]
+  },
+  {
+    "id": "authentication",
+    "subject": "AtlasAPI",
+    "key": "authentication",
+    "content": "Atlas service requests use OAuth 2.0 client credentials.",
+    "queries": [
+      "Atlas authentication",
+      "how services authenticate to Atlas",
+      "OAuth client credentials",
+      "machine access grant",
+      "service request identity",
+      "auth flow for Atlas integrations"
+    ]
+  },
+  {
+    "id": "job_queue",
+    "subject": "AtlasWorker",
+    "key": "queue",
+    "content": "Atlas background jobs use PostgreSQL SKIP LOCKED queues.",
+    "queries": [
+      "Atlas job queue",
+      "how workers claim jobs",
+      "SKIP LOCKED background work",
+      "worker queue implementation",
+      "where Atlas tasks are queued",
+      "concurrent job claiming mechanism"
+    ]
+  },
+  {
+    "id": "runtime_language",
+    "subject": "Atlas",
+    "key": "runtime_language",
+    "content": "The Atlas backend runs on Python 3.14.",
+    "queries": [
+      "Atlas backend language",
+      "Python version for Atlas",
+      "what runtime powers the server",
+      "Python 3.14 backend",
+      "Atlas implementation language",
+      "server runtime version"
+    ]
+  },
+  {
+    "id": "business_timezone",
+    "subject": "Atlas",
+    "key": "business_timezone",
+    "content": "Atlas business schedules use the Africa Casablanca timezone.",
+    "queries": [
+      "Atlas timezone",
+      "business schedule timezone",
+      "Africa Casablanca time",
+      "which clock does Atlas use",
+      "local time for scheduled work",
+      "Atlas calendar zone"
+    ]
+  },
+  {
+    "id": "incident_contact",
+    "subject": "AtlasOps",
+    "key": "incident_contact",
+    "content": "Atlas incidents are escalated to the platform on-call engineer.",
+    "queries": [
+      "Atlas incident contact",
+      "who handles Atlas outages",
+      "platform on-call escalation",
+      "where to send production incidents",
+      "owner during Atlas failure",
+      "operational emergency contact"
+    ]
+  },
+  {
+    "id": "monthly_budget",
+    "subject": "Atlas",
+    "key": "monthly_budget",
+    "content": "Atlas infrastructure spending is capped at 4000 USD monthly.",
+    "queries": [
+      "Atlas monthly budget",
+      "infrastructure spending cap",
+      "4000 USD cloud limit",
+      "maximum monthly platform cost",
+      "Atlas cost constraint",
+      "how much can infrastructure spend"
+    ]
+  },
+  {
+    "id": "web_framework",
+    "subject": "AtlasWeb",
+    "key": "framework",
+    "content": "The Atlas web application uses Next.js 16.",
+    "queries": [
+      "Atlas web framework",
+      "Next.js version",
+      "frontend framework for Atlas",
+      "what powers the Atlas UI",
+      "Next 16 application",
+      "Atlas browser app stack"
+    ]
+  },
+  {
+    "id": "default_branch",
+    "subject": "AtlasRepo",
+    "key": "default_branch",
+    "content": "The Atlas repository default branch is main.",
+    "queries": [
+      "Atlas default branch",
+      "which branch receives pull requests",
+      "repository mainline",
+      "is main the default",
+      "Atlas git base branch",
+      "target branch for changes"
+    ]
+  },
+  {
+    "id": "ci_provider",
+    "subject": "AtlasRepo",
+    "key": "ci_provider",
+    "content": "Atlas continuous integration runs on GitHub Actions.",
+    "queries": [
+      "Atlas CI provider",
+      "where builds run",
+      "GitHub Actions pipeline",
+      "continuous integration service",
+      "Atlas automated checks platform",
+      "which system executes CI"
+    ]
+  },
+  {
+    "id": "encryption",
+    "subject": "AtlasSecurity",
+    "key": "encryption",
+    "content": "Atlas encrypts stored customer data with AES-256.",
+    "queries": [
+      "Atlas encryption",
+      "how customer data is protected at rest",
+      "AES-256 storage",
+      "encryption algorithm for persisted data",
+      "Atlas data-at-rest cipher",
+      "customer record cryptography"
+    ]
+  },
+  {
+    "id": "retention",
+    "subject": "AtlasData",
+    "key": "retention",
+    "content": "Atlas audit events are retained for 365 days.",
+    "queries": [
+      "Atlas audit retention",
+      "how long are events kept",
+      "365 day audit history",
+      "event retention period",
+      "when are Atlas audit logs expired",
+      "duration of compliance records"
+    ]
+  },
+  {
+    "id": "incident_review",
+    "subject": "AtlasOps",
+    "key": "incident_review",
+    "content": "Atlas severity-one incidents require a review within 48 hours.",
+    "queries": [
+      "Atlas incident review",
+      "deadline after severity one",
+      "48 hour postmortem",
+      "when must an outage be reviewed",
+      "sev-one follow-up policy",
+      "incident retrospective timing"
+    ]
+  }
+]

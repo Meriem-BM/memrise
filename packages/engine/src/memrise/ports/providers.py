@@ -161,6 +161,26 @@ class DuplicateJudgementResult(BaseModel):
     prompt_version: str
 
 
+class RerankCandidate(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    memory_version_id: str
+    subject: str
+    key: str
+    content: str
+
+
+class RerankResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ordered_memory_version_ids: list[str] = Field(default_factory=list, max_length=100)
+    model_name: str
+
+
+class RerankerError(Exception):
+    """Raised when an optional precision-stage reranker is unavailable."""
+
+
 class CompletionProvider(Protocol):
     async def extract_memories(
         self, *, text: str, context: dict[str, object]
@@ -191,6 +211,15 @@ class EmbeddingProvider(Protocol):
     async def embed(self, text: str) -> EmbeddingVector: ...
 
     async def embed_many(self, texts: list[str]) -> list[EmbeddingVector]: ...
+
+
+class Reranker(Protocol):
+    async def rerank(
+        self,
+        *,
+        query: str,
+        candidates: list[RerankCandidate],
+    ) -> RerankResult: ...
 
 
 class TokenCounter(Protocol):
